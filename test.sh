@@ -2,10 +2,16 @@
 
 version=$(postgres -V | sed -n 's/^.* \([1-9][0-9]*\(\.[0-9]*\)\{0,2\}\).*/\1/p')
 version=${version%.*}
+export PGUSER=postgres
 
 rm -fr test_cluster*
 set -e
 sudo chmod a+w /var/run/postgresql
+
+# install su-exec
+git clone -b $SU_EXEC https://github.com/ncopa/su-exec.git \
+make -C su-exec LDFLAGS=-s all \
+cp su-exec/su-exec /usr/sbin \
 
 readonly port=5440
 
@@ -23,7 +29,7 @@ function shutdown_clusters() {
 }
 
 function create_cluster() {
-    initdb test_cluster$1
+    su-exec -$PGUSER initdb test_cluster$1
     echo "local all all		 md5" >> test_cluster$1/pg_hba.conf
     echo "shared_preload_libraries = 'pg_auth_mon'" >> test_cluster$1/postgresql.conf
 
