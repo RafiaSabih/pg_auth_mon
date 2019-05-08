@@ -5,6 +5,7 @@ version=${version%.*}
 
 rm -fr test_cluster*
 set -e
+sudo chmod a+w /var/run/postgresql
 
 readonly port=5440
 
