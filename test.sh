@@ -24,7 +24,7 @@ function shutdown_clusters() {
 }
 
 function create_cluster() {
-    su-exec -$PGUSER initdb test_cluster$1
+    initdb test_cluster$1
     echo "local all all		 md5" >> test_cluster$1/pg_hba.conf
     echo "shared_preload_libraries = 'pg_auth_mon'" >> test_cluster$1/postgresql.conf
 
