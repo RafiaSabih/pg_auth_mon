@@ -11,6 +11,10 @@ readonly port=5440
 
 function start_postgres() {
     postgres -D test_cluster$1 --port=$port &
+    max_attempts=0
+    while ! pg_isready -h localhost -p $port -d postgres; do
+        [[ $((max_attempts++)) -lt 10 ]] && sleep 1 || exit 1
+    done
 }
  
 function shutdown_clusters() {
