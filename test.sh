@@ -32,9 +32,8 @@ function create_cluster() {
 }
 
 create_cluster 0
-
-PGPASSWORD=postgres psql -U none -d postgres
-PGPASSWORD=postgres psql -U postgres -d postgres -c "CREATE EXTENSION pg_auth_mon"
-PGPASSWORD=postgres psql -U postgres -d postgres -c "SELECT uid, successful_attempts, total_hba_conflicts, other_auth_failures FROM pg_auth_mon()"
+PGPASSWORD=postgres psql -U postgres -p 5440 -d postgres -c "CREATE EXTENSION pg_auth_mon"
+PGPASSWORD=postgres psql -U none -p 5440 -d postgres
+PGPASSWORD=postgres psql -U postgres -p 5440 -d postgres -c "SELECT uid, successful_attempts, total_hba_conflicts, other_auth_failures FROM pg_auth_mon()"
 
 shutdown_clusters
