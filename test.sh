@@ -10,17 +10,12 @@ sudo chmod a+w /var/run/postgresql
 readonly port=5440
 
 function start_postgres() {
-    postgres -D test_cluster$1 --port=$(($port+$1)) &
-    max_attempts=0
-    while ! pg_isready -h localhost -p $(($port+$1)) -d postgres; do
-        [[ $((max_attempts++)) -lt 10 ]] && sleep 1 || exit 1
-    done
+    postgres -D test_cluster$1 --port=$port &
 }
  
 function shutdown_clusters() {
     set +e
     pg_ctl -w -D test_cluster0 stop -mf
-    pg_ctl -w -D test_cluster1 stop -mf
 }
 
 function create_cluster() {
@@ -32,8 +27,8 @@ function create_cluster() {
 }
 
 create_cluster 0
-PGPASSWORD=postgres psql -U postgres -p 5440 -d postgres -c "CREATE EXTENSION pg_auth_mon"
-PGPASSWORD=postgres psql -U none -p 5440 -d postgres
-PGPASSWORD=postgres psql -U postgres -p 5440 -d postgres -c "SELECT uid, successful_attempts, total_hba_conflicts, other_auth_failures FROM pg_auth_mon()"
+PGPASSWORD=postgres psql -U postgres -p $port -d postgres -c "CREATE EXTENSION pg_auth_mon"
+PGPASSWORD=postgres psql -U none -p $port -d postgres
+PGPASSWORD=postgres psql -U postgres -p $port -d postgres -c "SELECT uid, successful_attempts, total_hba_conflicts, other_auth_failures FROM pg_auth_mon()"
 
 shutdown_clusters
