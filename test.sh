@@ -8,11 +8,6 @@ rm -fr test_cluster*
 set -e
 sudo chmod a+w /var/run/postgresql
 
-# install su-exec
-git clone -b $SU_EXEC https://github.com/ncopa/su-exec.git \
-make -C su-exec LDFLAGS=-s all \
-cp su-exec/su-exec /usr/sbin \
-
 readonly port=5440
 
 function start_postgres() {
@@ -37,8 +32,8 @@ function create_cluster() {
 }
 
 create_cluster 0
-PGPASSWORD=postgres psql -U postgres -p $port -d postgres -c "CREATE EXTENSION pg_auth_mon"
+PGPASSWORD=postgres psql -U travis -p $port -d postgres -c "CREATE EXTENSION pg_auth_mon"
 PGPASSWORD=postgres psql -U none -p $port -d postgres
-PGPASSWORD=postgres psql -U postgres -p $port -d postgres -c "SELECT uid, successful_attempts, total_hba_conflicts, other_auth_failures FROM pg_auth_mon()"
+PGPASSWORD=postgres psql -U travis -p $port -d postgres -c "SELECT uid, successful_attempts, total_hba_conflicts, other_auth_failures FROM pg_auth_mon()"
 
 shutdown_clusters
