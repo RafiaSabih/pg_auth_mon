@@ -1,0 +1,53 @@
+create role auth_super with superuser login password 'postgres';
+create role auth_nologin with password 'postgres';
+create role auth_test with login password 'wrongpassword';
+create database testdb;
+create extension pg_auth_mon;
+--1.Successful Login attempt
+\! PGPASSWORD=postgres psql -U auth_super -d testdb -c "select 1"
+ ?column? 
+----------
+        1
+(1 row)
+
+select rolname, successful_attempts, total_hba_conflicts, other_auth_failures from pg_auth_mon(), pg_roles where oid = uid and rolname like 'auth_%';
+  rolname   | successful_attempts | total_hba_conflicts | other_auth_failures 
+------------+---------------------+---------------------+---------------------
+ auth_super |                   1 |                   0 |                   0
+(1 row)
+
+--2.Login attempt by invalid username
+\! PGPASSWORD=postgres psql -U auth_blah -d testdb  -c "select 1"
+psql: error: could not connect to server: FATAL:  password authentication failed for user "auth_blah"
+select uid, successful_attempts, total_hba_conflicts, other_auth_failures from pg_auth_mon() where uid = 0;
+ uid | successful_attempts | total_hba_conflicts | other_auth_failures 
+-----+---------------------+---------------------+---------------------
+   0 |                   0 |                   0 |                   1
+(1 row)
+
+--3.Login attempt by username who is not allowed to login is not authentication failure
+\! PGPASSWORD=postgres psql -U auth_nologin -d testdb -c "select 1"
+psql: error: could not connect to server: FATAL:  role "auth_nologin" is not permitted to log in
+select rolname, successful_attempts, total_hba_conflicts, other_auth_failures from pg_auth_mon(), pg_roles where oid = uid and rolname like 'auth_%';
+   rolname    | successful_attempts | total_hba_conflicts | other_auth_failures 
+--------------+---------------------+---------------------+---------------------
+ auth_nologin |                   1 |                   0 |                   0
+ auth_super   |                   1 |                   0 |                   0
+(2 rows)
+
+--4.Login attempt by a valid user with a wrong password 
+\! PGPASSWORD=postgres psql -U auth_test -d testdb -c "select 1"
+psql: error: could not connect to server: FATAL:  password authentication failed for user "auth_test"
+select rolname, successful_attempts, total_hba_conflicts, other_auth_failures from pg_auth_mon(), pg_roles where oid = uid and rolname like 'auth_%';
+   rolname    | successful_attempts | total_hba_conflicts | other_auth_failures 
+--------------+---------------------+---------------------+---------------------
+ auth_nologin |                   1 |                   0 |                   0
+ auth_test    |                   0 |                   0 |                   1
+ auth_super   |                   1 |                   0 |                   0
+(3 rows)
+
+--Cleanup
+drop role auth_nologin;
+drop role auth_test;
+drop database testdb;
+drop role auth_super;

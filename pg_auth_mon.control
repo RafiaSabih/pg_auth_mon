@@ -1,0 +1,4 @@
+comment = 'report failed authentication attempt to a separate log file'
+default_version = '1.0'
+module_pathname = '$libdir/pg_auth_mon'
+relocatable = true
