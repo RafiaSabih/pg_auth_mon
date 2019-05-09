@@ -4,10 +4,10 @@ language: c
 compiler: gcc
 matrix:
   include:
-  - env: PG=9.3
-  - env: PG=9.4
-  - env: PG=9.5
-  - env: PG=9.6
+          #- env: PG=9.3
+          #- env: PG=9.4
+          #- env: PG=9.5
+          #- env: PG=9.6
   - env: PG=10
   - env: PG=11
 before_install:
@@ -24,5 +24,7 @@ script:
     bash -x test.sh
     if grep -E '(ERROR|FATAL)' test_cluster?/*log/postgresql*.log | grep -Ev '(no COPY in progress|could not connect to|could not send|database system is shutting|database system is starting up)'; then exit 1; fi
 after_success:
-    - gcov --version
-    - coveralls --gcov-options '\-lr'
+        #    - gcov --version
+        #- coveralls --gcov-options '\-lr'
+  - sudo chmod 666 *.gcda
+  - coveralls --gcov-options '\-lr'
