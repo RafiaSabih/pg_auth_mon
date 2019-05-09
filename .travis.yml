@@ -20,6 +20,6 @@ script:
     bash -x test.sh
     if grep -E '(ERROR|FATAL)' test_cluster?/*log/postgresql*.log | grep -Ev '(no COPY in progress|could not connect to|could not send|database system is shutting|database system is starting up)'; then exit 1; fi
 after_success:
-  - Rscript -e 'options(covr.gcov = "gcov-4.8");library(covr);coveralls()'   
+        #- Rscript -e 'options(covr.gcov = "gcov-4.8");library(covr);coveralls()'   
     #after_success:
-    #- coveralls --gcov-options '\-lr'
+    - coveralls --gcov-options '\-lr'
