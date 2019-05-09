@@ -18,6 +18,7 @@ PG_CONFIG = pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
 
+SHLIB_LINK += -levent -levent_pthreads -pthread
 ifdef ENABLE_GCOV
 SHLIB_LINK += -lgcov --coverage
 endif
