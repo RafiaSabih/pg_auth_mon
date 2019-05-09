@@ -14,7 +14,7 @@ before_install:
   - sudo pg_dropcluster --stop 9.2 main
   - sudo service postgresql stop
   - sudo sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf
-  - if ! sudo -E apt-get -yq --no-install-suggests --no-install-recommends $(travis_apt_get_options) install postgresql-$PG postgresql-server-dev-$PG libevent-dev pv; then echo; fi
+  - if ! sudo -E apt-get -yq --no-install-suggests --no-install-recommends $(travis_apt_get_options) install postgresql-$PG postgresql-server-dev-$PG; then echo; fi
   - sudo pip install --upgrade cpp-coveralls
 script:
   - |
@@ -22,9 +22,5 @@ script:
     export PATH=/usr/lib/postgresql/$PG/bin:$PATH
     sudo make USE_PGXS=1 ENABLE_GCOV=1 install
     bash -x test.sh
-    if grep -E '(ERROR|FATAL)' test_cluster?/*log/postgresql*.log | grep -Ev '(no COPY in progress|could not connect to|could not send|database system is shutting|database system is starting up)'; then exit 1; fi
 after_success:
-        #    - gcov --version
-        #- coveralls --gcov-options '\-lr'
-  - sudo chmod 666 *.gcda
   - coveralls --gcov-options '\-lr'
