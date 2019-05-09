@@ -4,10 +4,10 @@ language: c
 compiler: gcc
 matrix:
   include:
-          #- env: PG=9.3
-          #- env: PG=9.4
-          #- env: PG=9.5
-          #- env: PG=9.6
+  - env: PG=9.3
+  - env: PG=9.4
+  - env: PG=9.5
+  - env: PG=9.6
   - env: PG=10
   - env: PG=11
 before_install:

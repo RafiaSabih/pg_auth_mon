@@ -41,6 +41,12 @@ extern void _PG_fini(void);
 #define AUTH_MON_COLS  6
 #define AUTH_MON_HT_SIZE       1024
 
+#if PG_VERSION_NUM < 90400
+LWLockId   auth_mon_lock;
+#else
+/* LWlock to mange the reading and writing the hash table. */
+LWLock	   *auth_mon_lock;
+#endif
 /*
  * A record for a login attempt.
  */
@@ -53,9 +59,6 @@ typedef struct auth_mon_rec
 	int			total_hba_conflicts;
 	int			other_auth_failures;
 }			auth_mon_rec;
-
-/* LWlock to mange the reading and writing the hash table. */
-LWLock	   *auth_mon_lock;
 
 /* Original Hook */
 static ClientAuthentication_hook_type original_client_auth_hook = NULL;
@@ -89,14 +92,23 @@ fai_shmem_startup(void)
 	memset(&info, 0, sizeof(info));
 	info.keysize = sizeof(Oid);
 	info.entrysize = sizeof(auth_mon_rec);
+#if PG_VERSION_NUM > 100000
 	info.hash = uint32_hash;
-
-	auth_mon_ht = ShmemInitHash("auth_mon_hash",
+        auth_mon_ht = ShmemInitHash("auth_mon_hash",
 								AUTH_MON_HT_SIZE, AUTH_MON_HT_SIZE,
 								&info,
 								HASH_ELEM | HASH_FUNCTION);
-
+#else
+        auth_mon_ht = ShmemInitHash("auth_mon_hash",
+								AUTH_MON_HT_SIZE, AUTH_MON_HT_SIZE,
+								&info,
+								HASH_ELEM);
+#endif
+#if PG_VERSION_NUM < 90600
+        auth_mon_lock = LWLockAssign();
+#else
 	auth_mon_lock = &(GetNamedLWLockTranche("auth_mon_lock"))->lock;
+#endif
 	LWLockRelease(AddinShmemInitLock);
 
 	/*
@@ -298,7 +310,11 @@ _PG_init(void)
 	 * resources in *_shmem_startup().
 	 */
 	RequestAddinShmemSpace(fai_memsize());
-	RequestNamedLWLockTranche("auth_mon_lock", 1);
+#if PG_VERSION_NUM < 90600
+        RequestAddinLWLocks(1);
+#else
+        RequestNamedLWLockTranche("auth_mon_lock", 1);
+#endif
 
 	/* Install Hooks */
 	prev_shmem_startup_hook = shmem_startup_hook;
