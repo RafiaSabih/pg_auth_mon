@@ -20,7 +20,9 @@
 #include "storage/lwlock.h"
 #include "storage/ipc.h"
 #include "storage/shmem.h"
+#if PG_VERSION_NUM >= 100000
 #include "utils/hashutils.h"
+#endif
 #include "utils/hsearch.h"
 #include "utils/memutils.h"
 #include "utils/tuplestore.h"
@@ -55,7 +57,11 @@ typedef struct auth_mon_rec
 }			auth_mon_rec;
 
 /* LWlock to mange the reading and writing the hash table. */
+#if PG_VERSION_NUM <90400
+LWLockId	auth_mon_lock;
+#else
 LWLock	   *auth_mon_lock;
+#endif
 
 /* Original Hook */
 static ClientAuthentication_hook_type original_client_auth_hook = NULL;
@@ -89,14 +95,24 @@ fai_shmem_startup(void)
 	memset(&info, 0, sizeof(info));
 	info.keysize = sizeof(Oid);
 	info.entrysize = sizeof(auth_mon_rec);
+#if PG_VERSION_NUM > 100000
 	info.hash = uint32_hash;
 
 	auth_mon_ht = ShmemInitHash("auth_mon_hash",
 								AUTH_MON_HT_SIZE, AUTH_MON_HT_SIZE,
 								&info,
 								HASH_ELEM | HASH_FUNCTION);
-
+#else
+	auth_mon_ht = ShmemInitHash("auth_mon_hash",
+								AUTH_MON_HT_SIZE, AUTH_MON_HT_SIZE,
+								&info,
+								HASH_ELEM);
+#endif
+#if PG_VERSION_NUM < 90600
+	auth_mon_lock = LWLockAssign();
+#else
 	auth_mon_lock = &(GetNamedLWLockTranche("auth_mon_lock"))->lock;
+#endif
 	LWLockRelease(AddinShmemInitLock);
 
 	/*
@@ -298,7 +314,11 @@ _PG_init(void)
 	 * resources in *_shmem_startup().
 	 */
 	RequestAddinShmemSpace(fai_memsize());
+#if PG_VERSION_NUM < 90600
+	RequestAddinLWLocks(1);
+#else
 	RequestNamedLWLockTranche("auth_mon_lock", 1);
+#endif
 
 	/* Install Hooks */
 	prev_shmem_startup_hook = shmem_startup_hook;

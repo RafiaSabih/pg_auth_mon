@@ -35,7 +35,4 @@ create_cluster 0
 PGPASSWORD=postgres psql -U travis -p $port -d postgres -c "CREATE EXTENSION pg_auth_mon"
 PGPASSWORD=postgres psql -U travis -p $port -d postgres -c "SELECT uid, successful_attempts, total_hba_conflicts, other_auth_failures FROM pg_auth_mon()"
 
-gcc --version
-pip --version
-gcov --version
 shutdown_clusters
