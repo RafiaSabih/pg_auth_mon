@@ -57,7 +57,7 @@ typedef struct auth_mon_rec
 }			auth_mon_rec;
 
 /* LWlock to mange the reading and writing the hash table. */
-#if PG_VERSION_NUM <90400
+#if PG_VERSION_NUM < 90400
 LWLockId	auth_mon_lock;
 #else
 LWLock	   *auth_mon_lock;

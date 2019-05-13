@@ -11,7 +11,7 @@
 CREATE FUNCTION pg_auth_mon(
     OUT uid oid,
     OUT successful_attempts int,
-    OUT last_succesful_TS timestampTz,
+    OUT last_successful_TS timestampTz,
     OUT total_hba_conflicts   int,
     OUT other_auth_failures    int,
     OUT last_failed_TS  timestampTz
@@ -21,6 +21,4 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C STRICT VOLATILE;
 
 CREATE VIEW pg_auth_mon AS
-  SELECT * FROM pg_auth_mon();
-
-GRANT SELECT ON pg_auth_mon TO PUBLIC;
+  SELECT rolname, pg_auth_mon.* FROM pg_auth_mon() LEFT JOIN pg_roles ON oid = uid;
