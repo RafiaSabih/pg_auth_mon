@@ -22,4 +22,4 @@ trap cleanup QUIT TERM EXIT
 
 pg_ctl start -w -o "--shared_preload_libraries=pg_auth_mon --unix_socket_directories=$PGHOST"
 
-make USE_PGXS=1 installcheck
+make USE_PGXS=1 installcheck || diff -u expected/pg_auth_mon.out results/pg_auth_mon.out
