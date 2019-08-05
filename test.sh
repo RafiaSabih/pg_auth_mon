@@ -7,14 +7,14 @@ export PGHOST=/tmp
 
 function cleanup() {
     pg_ctl -w stop -mf
-    rm -fr $PGDATA
+    rm -fr $PGDATA $pwfile
 }
 
 cleanup 2> /dev/null
 
 set -e
 
-pwfile=$(tempfile)
+readonly pwfile=$(tempfile)
 echo -n $PGPASSWORD > $pwfile
 initdb --pwfile=$pwfile --auth=md5
 
