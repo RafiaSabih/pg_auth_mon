@@ -1,38 +1,25 @@
 #!bin/bash
 
-version=$(postgres -V | sed -n 's/^.* \([1-9][0-9]*\(\.[0-9]*\)\{0,2\}\).*/\1/p')
-version=${version%.*}
-export PGUSER=postgres
+export PGPASSWORD=postgres
+export PGDATA=test_cluster
+export PGPORT=5440
+export PGHOST=/tmp
 
-rm -fr test_cluster*
+function cleanup() {
+    pg_ctl -w stop -mf
+    rm -fr $PGDATA $pwfile
+}
+
+cleanup 2> /dev/null
+
 set -e
-sudo chmod a+w /var/run/postgresql
 
-readonly port=5440
+readonly pwfile=$(tempfile)
+echo -n $PGPASSWORD > $pwfile
+initdb --pwfile=$pwfile --auth=md5
 
-function start_postgres() {
-    postgres -D test_cluster$1 --port=$port &
-    max_attempts=0
-    while ! pg_isready -h localhost -p $port -d postgres; do
-        [[ $((max_attempts++)) -lt 10 ]] && sleep 1 || exit 1
-    done
-}
- 
-function shutdown_clusters() {
-    set +e
-    pg_ctl -w -D test_cluster0 stop -mf
-}
+trap cleanup QUIT TERM EXIT
 
-function create_cluster() {
-    initdb test_cluster$1
-    echo "local all all		 md5" >> test_cluster$1/pg_hba.conf
-    echo "shared_preload_libraries = 'pg_auth_mon'" >> test_cluster$1/postgresql.conf
+pg_ctl start -w -o "--shared_preload_libraries=pg_auth_mon --unix_socket_directories=$PGHOST"
 
-    start_postgres $1
-}
-
-create_cluster 0
-PGPASSWORD=postgres psql -U travis -p $port -d postgres -c "CREATE EXTENSION pg_auth_mon"
-PGPASSWORD=postgres psql -U travis -p $port -d postgres -c "SELECT uid, successful_attempts, total_hba_conflicts, other_auth_failures FROM pg_auth_mon()"
-
-shutdown_clusters
+make USE_PGXS=1 installcheck || diff -u expected/pg_auth_mon.out results/pg_auth_mon.out
