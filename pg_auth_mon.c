@@ -17,12 +17,10 @@
 #include "libpq/libpq-be.h"
 #include "port.h"
 #include "miscadmin.h"
+#include "access/hash.h"
 #include "storage/lwlock.h"
 #include "storage/ipc.h"
 #include "storage/shmem.h"
-#if PG_VERSION_NUM >= 100000
-#include "utils/hashutils.h"
-#endif
 #include "utils/hsearch.h"
 #include "utils/memutils.h"
 #include "utils/tuplestore.h"
