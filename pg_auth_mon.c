@@ -28,6 +28,7 @@
 #include "utils/acl.h"
 #include "catalog/pg_authid.h"
 #include "funcapi.h"
+#include "c.h"
 
 Datum		pg_auth_mon(PG_FUNCTION_ARGS);
 
@@ -52,8 +53,8 @@ typedef struct auth_mon_rec
 	TimestampTz last_failed_attempt_at;
 	int			total_hba_conflicts;
 	int			other_auth_failures;
-	int		user_name;
-}			auth_mon_rec;
+	NameData	user_name;
+}				auth_mon_rec;
 
 /* LWlock to mange the reading and writing the hash table. */
 #if PG_VERSION_NUM < 90400
@@ -159,7 +160,6 @@ auth_monitor(Port *port, int status)
 	bool		found = false,
 				hba_reject = false,
 				fail = false;
-	const char *user_name;
 
 	/*
 	 * Any other plugins which use ClientAuthentication_hook.
@@ -172,7 +172,7 @@ auth_monitor(Port *port, int status)
 		return;
 
 	key = get_role_oid((const char *) (port->user_name), true);
-	user_name = (const char *) port->user_name;
+	
 
 	/*
 	 * A general case of failed attempt is when the status is not STATUS_OK.
@@ -192,9 +192,9 @@ auth_monitor(Port *port, int status)
 	if (!found)
 	{
 		fai->key = key;
-		fai->user_name = user_name;
 		memset(&fai->total_successful_attempts, 0, sizeof(auth_mon_rec)
 			   - offsetof(auth_mon_rec, total_successful_attempts));
+		strcpy(fai->user_name.data, "dummy_user");
 	}
 
 	/*
@@ -289,7 +289,7 @@ pg_auth_mon(PG_FUNCTION_ARGS)
 		else
 			values[i] = TimestampTzGetDatum(entry->last_failed_attempt_at);
 
-        values[i++] = Int32GetDatum(entry->other_auth_failures);
+		values[i++] = NameGetDatum(&(entry->user_name));
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
 	}
 

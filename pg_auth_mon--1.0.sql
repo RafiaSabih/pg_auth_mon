@@ -15,7 +15,7 @@ CREATE FUNCTION pg_auth_mon(
     OUT total_hba_conflicts   int,
     OUT other_auth_failures    int,
     OUT last_failed_TS  timestampTz,
-    OUT user_name int
+    OUT user_name name
 )
 RETURNS SETOF record
 AS 'MODULE_PATHNAME'
