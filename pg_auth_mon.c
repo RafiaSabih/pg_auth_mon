@@ -38,7 +38,7 @@ PG_MODULE_MAGIC;
 extern void _PG_init(void);
 extern void _PG_fini(void);
 
-#define AUTH_MON_COLS  6
+#define AUTH_MON_COLS  7
 #define AUTH_MON_HT_SIZE       1024
 
 /*
@@ -52,6 +52,7 @@ typedef struct auth_mon_rec
 	TimestampTz last_failed_attempt_at;
 	int			total_hba_conflicts;
 	int			other_auth_failures;
+	int		user_name;
 }			auth_mon_rec;
 
 /* LWlock to mange the reading and writing the hash table. */
@@ -158,6 +159,7 @@ auth_monitor(Port *port, int status)
 	bool		found = false,
 				hba_reject = false,
 				fail = false;
+	const char *user_name;
 
 	/*
 	 * Any other plugins which use ClientAuthentication_hook.
@@ -170,6 +172,7 @@ auth_monitor(Port *port, int status)
 		return;
 
 	key = get_role_oid((const char *) (port->user_name), true);
+	user_name = (const char *) port->user_name;
 
 	/*
 	 * A general case of failed attempt is when the status is not STATUS_OK.
@@ -189,6 +192,7 @@ auth_monitor(Port *port, int status)
 	if (!found)
 	{
 		fai->key = key;
+		fai->user_name = user_name;
 		memset(&fai->total_successful_attempts, 0, sizeof(auth_mon_rec)
 			   - offsetof(auth_mon_rec, total_successful_attempts));
 	}
@@ -285,6 +289,7 @@ pg_auth_mon(PG_FUNCTION_ARGS)
 		else
 			values[i] = TimestampTzGetDatum(entry->last_failed_attempt_at);
 
+        values[i++] = Int32GetDatum(entry->other_auth_failures);
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
 	}
 
