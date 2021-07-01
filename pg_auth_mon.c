@@ -29,6 +29,7 @@
 #include "catalog/pg_authid.h"
 #include "funcapi.h"
 #include "c.h"
+#include "utils/builtins.h"
 
 Datum		pg_auth_mon(PG_FUNCTION_ARGS);
 
@@ -53,7 +54,7 @@ typedef struct auth_mon_rec
 	TimestampTz last_failed_attempt_at;
 	int			total_hba_conflicts;
 	int			other_auth_failures;
-	Name		user_name;
+	NameData	user_name;
 }				auth_mon_rec;
 
 /* LWlock to mange the reading and writing the hash table. */
@@ -194,8 +195,7 @@ auth_monitor(Port *port, int status)
 		fai->key = key;
 		memset(&fai->total_successful_attempts, 0, sizeof(auth_mon_rec)
 			   - offsetof(auth_mon_rec, total_successful_attempts));
-		fai->user_name = palloc0(sizeof(NameData));
-		strcpy(fai->user_name->data, "dummy_user");
+		namestrcpy(&fai->user_name, "dummy_user");
 	}
 
 	/*
@@ -290,7 +290,7 @@ pg_auth_mon(PG_FUNCTION_ARGS)
 		else
 			values[i] = TimestampTzGetDatum(entry->last_failed_attempt_at);
 
-		values[i++] = NameGetDatum(entry->user_name);
+		values[i++] = NameGetDatum(&entry->user_name);
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
 	}
 
