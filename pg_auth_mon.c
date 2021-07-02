@@ -195,7 +195,7 @@ auth_monitor(Port *port, int status)
 		fai->key = key;
 		memset(&fai->total_successful_attempts, 0, sizeof(auth_mon_rec)
 			   - offsetof(auth_mon_rec, total_successful_attempts));
-		namestrcpy(&fai->user_name, "dummy_user");
+		namestrcpy(&fai->user_name, port->user_name);
 	}
 
 	/*
