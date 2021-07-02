@@ -286,11 +286,11 @@ pg_auth_mon(PG_FUNCTION_ARGS)
 		 */
 		if (entry->total_hba_conflicts == 0 &&
 			entry->other_auth_failures == 0)
-			nulls[i] = true;
+			nulls[i++] = true;
 		else
-			values[i] = TimestampTzGetDatum(entry->last_failed_attempt_at);
+			values[i++] = TimestampTzGetDatum(entry->last_failed_attempt_at);
 
-		values[i++] = NameGetDatum(&entry->user_name);
+		values[i] = NameGetDatum(&entry->user_name);
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
 	}
 
