@@ -22,4 +22,8 @@ AS 'MODULE_PATHNAME'
 LANGUAGE C STRICT VOLATILE;
 
 CREATE VIEW pg_auth_mon AS
-  SELECT rolname, pg_auth_mon.* FROM pg_auth_mon() LEFT JOIN pg_roles ON oid = uid;
+  SELECT 
+    (CASE WHEN rolname IS NOT NULL THEN rolname ELSE user_name END) AS rolname, 
+    (pg_roles.rolname IS NULL) AS deleted, 
+    successful_attempts, last_successful_TS, total_hba_conflicts, other_auth_failures, last_failed_TS
+  FROM pg_auth_mon() LEFT JOIN pg_roles ON oid = uid;
