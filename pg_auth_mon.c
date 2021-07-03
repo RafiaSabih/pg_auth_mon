@@ -54,7 +54,7 @@ typedef struct auth_mon_rec
 	TimestampTz last_failed_attempt_at;
 	int			total_hba_conflicts;
 	int			other_auth_failures;
-	NameData	user_name;
+	NameData	initial_rolename;
 }				auth_mon_rec;
 
 /* LWlock to mange the reading and writing the hash table. */
@@ -195,7 +195,7 @@ auth_monitor(Port *port, int status)
 		fai->key = key;
 		memset(&fai->total_successful_attempts, 0, sizeof(auth_mon_rec)
 			   - offsetof(auth_mon_rec, total_successful_attempts));
-		namestrcpy(&fai->user_name, port->user_name);
+		namestrcpy(&fai->initial_rolename, port->user_name);
 	}
 
 	/*
@@ -290,7 +290,7 @@ pg_auth_mon(PG_FUNCTION_ARGS)
 		else
 			values[i++] = TimestampTzGetDatum(entry->last_failed_attempt_at);
 
-		values[i] = NameGetDatum(&entry->user_name);
+		values[i] = NameGetDatum(&entry->initial_rolename);
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
 	}
 
