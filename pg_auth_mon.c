@@ -174,7 +174,6 @@ auth_monitor(Port *port, int status)
 
 	key = get_role_oid((const char *) (port->user_name), true);
 	
-
 	/*
 	 * A general case of failed attempt is when the status is not STATUS_OK.
 	 * However, also consider the case when user-oid is invalid. Because it
