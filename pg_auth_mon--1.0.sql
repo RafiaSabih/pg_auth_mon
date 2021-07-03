@@ -23,7 +23,7 @@ LANGUAGE C STRICT VOLATILE;
 
 CREATE VIEW pg_auth_mon AS
   SELECT 
-    (CASE WHEN rolname IS NOT NULL THEN rolname ELSE initial_rolename END) AS rolname, 
+    (CASE WHEN pg_roles.rolname IS NULL THEN initial_rolename ELSE pg_roles.rolname END) AS rolname, 
     (pg_roles.rolname IS NULL) AS deleted, 
     successful_attempts, last_successful_TS, total_hba_conflicts, other_auth_failures, last_failed_TS
   FROM pg_auth_mon() LEFT JOIN pg_roles ON oid = uid;
