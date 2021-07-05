@@ -32,5 +32,4 @@ select rolname, successful_attempts, total_hba_conflicts, other_auth_failures fr
 drop role auth_nologin;
 drop role auth_test;
 drop role auth_super;
-
 drop database testdb;
