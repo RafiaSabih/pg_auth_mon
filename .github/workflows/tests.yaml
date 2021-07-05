@@ -32,7 +32,7 @@ jobs:
         sudo service postgresql stop
         sudo sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf
         if [ $PG = 13 ]; then sudo sed -i -e "s/main/main $PG/" /etc/apt/sources.list.d/pgdg*.list && sudo apt-get -qq update; fi
-        if ! sudo -E apt-get -yq --no-install-suggests --no-install-recommends $(travis_apt_get_options) install postgresql-$PG postgresql-server-dev-$PG; then echo; fi
+        if ! sudo -E apt-get -yq --no-install-suggests --no-install-recommends install postgresql-$PG postgresql-server-dev-$PG; then echo; fi
         sudo pip install --upgrade cpp-coveralls
 
     - name: Compile and install pg_auth_mon
