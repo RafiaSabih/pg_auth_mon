@@ -194,12 +194,12 @@ auth_monitor(Port *port, int status)
 		memset(&fai->total_successful_attempts, 0, sizeof(auth_mon_rec)
 			   - offsetof(auth_mon_rec, total_successful_attempts));
 		/*
-		 * We use the key equal to zero to aggregate login attempts
-		 * of non-existing users. For them it does makes no sense to
-		 * persist any particular username, so we leave initial_rolename
-		 * blank.
+		 * We use InvalidOid to aggregate login attempts
+		 * of non-existing users. For them it makes no sense
+		 * to persist any particular username, so we leave 
+		 * initial_rolename blank.
 	 	 */
-		if (key != 0) {
+		if (key != InvalidOid) {
 			namestrcpy(&fai->initial_rolename, port->user_name);
 		}
 	}
