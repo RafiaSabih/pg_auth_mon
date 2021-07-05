@@ -30,3 +30,22 @@ memory. The key for this hash table is the `oid` of a user. The hash table also 
 
 The information is accessible for querying via the `pg_auth_mon` view. Each valid user who attempts to login gets a tuple in this view. All login attempts with an invalid user name are summed up into a single
 tuple with the oid equal to zero. The view does not store more specific information like the client's IP address or port; check Postgres log for that information. The username for a given `oid` is retrieved from the catalog's view `pg_roles`.
+
+
+## How to build and install:
+
+```bash
+$ sudo make install
+```
+
+Note tests run against a vanilla Postgres installation that uses `md5` authentication method for everything;
+that affects expected test results. Have a look into `test.sh` for Postgres test configuraiton.
+
+## How to run it:
+
+1. Add `shared_preload_libraries = 'pg_auth_mon'` to your `postgresql.conf`
+2. Restart postgresql, for example `sudo systemctl restart postgresql@12-main.service`
+3. ```sql
+   create extension pg_auth_mon;
+   select * from pg_auth_mon;
+```
