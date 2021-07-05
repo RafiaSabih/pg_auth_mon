@@ -1,36 +1,32 @@
 # pg_auth_mon
 
+## Intro
+
 PostgreSQL extension to store authentication attempts
 
-The goal of this extension is to ease monitoring of login attempts to your
-database. Although each failed login is written to database log file, but it is
-not straightforward to identify through that information alone if your database
-is under some malicious intents. However, if the information like total failed
-as well as successful login attempts, timestamp of last failed and successful
-login are maintained individually, then we can easily answer questions like,
-- if the user genuinely mistyped their password or their username is being
+This extension eases monitoring of login attempts to your
+database. Postgres writes each login attempt to a log file, but it is
+hard to identify through that information alone if your database
+is under malicious activity. Maintaining separately information like the total number of successful login attempts, or a timestamp of the last failed login helps to answer questions like:
+- when has a user successfully logged in for the last time ?
+- has a user genuinely mistyped their password or has their username been
 compromised?
-- if there is any particular time when the malicious user/application is active?
+- is there any particular time when a malicious role is active?
 
-Once we have identified that there is a suspicious activity going on, we may dig
+Once we have spot a suspicious activity, we may dig
 deeper by using this information along with the log file to identify the
 particular IP address, etc.
 
-One can view this view after creating the extension pg_auth_mon.
 
-Under the hood:
-All the login attempts are stored in a dynamic hash table maintained in shared
-memory. The key for this hash table is the oid of user. Rest of the information
-in this hash table are
-- total number of successful attempts
-- last timestamp of successful login
-- last time of failed login attempt
+## Under the hood
+
+The extension stores login attempts in a dynamic hash table in shared
+memory. The key for this hash table is the `oid` of a user. The hash table also contains per user:
+- total number of successful login attempts
+- timestamp of the last successful login
+- timestamp of the failed login
 - total number of failed login attempts because of some conflict in hba file
 - total number of authentication failures because of other issues
 
-Each valid user who attempts the login gets a tuple in this view. However, all
-the attempts of login via some invalid user names are summed up in a single
-tuple, with its oid being zero. More particular information like the username,
-client IP address or port, etc. are not saved in this view, as they are  in the
-log file. The username for a given oid can be retrieved from the system table
--- pg_roles.
+The information is accessible for querying via the `pg_auth_mon` view. Each valid user who attempts to login gets a tuple in this view. All login attempts with an invalid user name are summed up into a single
+tuple with the oid equal to zero. The view does not store more specific information like the client's IP address or port; check Postgres log for that information. The username for a given `oid` is retrieved from the catalog's view `pg_roles`.
