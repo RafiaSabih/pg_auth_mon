@@ -14,16 +14,11 @@ CREATE FUNCTION pg_auth_mon(
     OUT last_successful_TS timestampTz,
     OUT total_hba_conflicts   int,
     OUT other_auth_failures    int,
-    OUT last_failed_TS  timestampTz,
-    OUT initial_rolename name
+    OUT last_failed_TS  timestampTz
 )
 RETURNS SETOF record
 AS 'MODULE_PATHNAME'
 LANGUAGE C STRICT VOLATILE;
 
 CREATE VIEW pg_auth_mon AS
-  SELECT
-    COALESCE(pg_roles.rolname, initial_rolename) AS rolname, 
-    (pg_roles.rolname IS NULL) AS deleted, 
-    uid, successful_attempts, last_successful_TS, total_hba_conflicts, other_auth_failures, last_failed_TS
-  FROM pg_auth_mon() LEFT JOIN pg_roles ON oid = uid;
+  SELECT rolname, pg_auth_mon.* FROM pg_auth_mon() LEFT JOIN pg_roles ON oid = uid;
