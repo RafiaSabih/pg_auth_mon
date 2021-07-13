@@ -28,6 +28,8 @@ $ bash -x test.sh # tests only
 Note tests run against a vanilla Postgres installation that uses `md5` authentication method for everything;
 that affects expected test results. Have a look into `test.sh` for Postgres test configuraiton.
 
+Depending on one's installation, one may or may not need `sudo` in the above script.
+
 ## How to run it:
 
 1. Add `shared_preload_libraries = 'pg_auth_mon'` to your `postgresql.conf`

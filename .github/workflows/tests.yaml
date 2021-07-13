@@ -15,9 +15,6 @@ jobs:
       fail-fast: false
       matrix:
         postgres-version:
-        - '9.3'
-        - '9.4'
-        - '9.5'
         - '9.6'
         - '10'
         - '11'
