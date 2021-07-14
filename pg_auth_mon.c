@@ -196,10 +196,17 @@ auth_monitor(Port *port, int status)
 		/*
 		 * We use InvalidOid to aggregate login attempts
 		 * of non-existing users. For them it makes no sense
-		 * to persist any particular username, so we leave 
-		 * initial_rolename blank.
+		 * to persist any particular rolename, so we leave 
+		 * rolename_at_last_login_attempt blank.
 	 	 */
 		if (key != InvalidOid) {
+			namestrcpy(&fai->rolename_at_last_login_attempt, port->user_name);
+		}
+	} else {
+		/*
+		 *  The role was renamed between two consecutive login attempts.
+		 */
+		if (namestrcmp(&fai->rolename_at_last_login_attempt,port->user_name) != 0){
 			namestrcpy(&fai->rolename_at_last_login_attempt, port->user_name);
 		}
 	}
