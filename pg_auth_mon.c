@@ -54,7 +54,7 @@ typedef struct auth_mon_rec
 	TimestampTz last_failed_attempt_at;
 	int			total_hba_conflicts;
 	int			other_auth_failures;
-	NameData	initial_rolename;
+	NameData	rolename_at_last_login_attempt;
 }				auth_mon_rec;
 
 /* LWlock to mange the reading and writing the hash table. */
@@ -200,7 +200,7 @@ auth_monitor(Port *port, int status)
 		 * initial_rolename blank.
 	 	 */
 		if (key != InvalidOid) {
-			namestrcpy(&fai->initial_rolename, port->user_name);
+			namestrcpy(&fai->rolename_at_last_login_attempt, port->user_name);
 		}
 	}
 
@@ -296,7 +296,7 @@ pg_auth_mon(PG_FUNCTION_ARGS)
 		else
 			values[i++] = TimestampTzGetDatum(entry->last_failed_attempt_at);
 
-		values[i] = NameGetDatum(&entry->initial_rolename);
+		values[i] = NameGetDatum(&entry->rolename_at_last_login_attempt);
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
 	}
 
