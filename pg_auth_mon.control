@@ -1,4 +1,4 @@
 comment = 'monitor connection attempts per user'
-default_version = '1.0'
+default_version = '1.1'
 module_pathname = '$libdir/pg_auth_mon'
 relocatable = true

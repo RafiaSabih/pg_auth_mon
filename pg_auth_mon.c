@@ -28,6 +28,8 @@
 #include "utils/acl.h"
 #include "catalog/pg_authid.h"
 #include "funcapi.h"
+#include "c.h"
+#include "utils/builtins.h"
 
 Datum		pg_auth_mon(PG_FUNCTION_ARGS);
 
@@ -38,7 +40,7 @@ PG_MODULE_MAGIC;
 extern void _PG_init(void);
 extern void _PG_fini(void);
 
-#define AUTH_MON_COLS  6
+#define AUTH_MON_COLS  7
 #define AUTH_MON_HT_SIZE       1024
 
 /*
@@ -52,7 +54,8 @@ typedef struct auth_mon_rec
 	TimestampTz last_failed_attempt_at;
 	int			total_hba_conflicts;
 	int			other_auth_failures;
-}			auth_mon_rec;
+	NameData	rolename_at_last_login_attempt;
+}				auth_mon_rec;
 
 /* LWlock to mange the reading and writing the hash table. */
 #if PG_VERSION_NUM < 90400
@@ -170,7 +173,6 @@ auth_monitor(Port *port, int status)
 		return;
 
 	key = get_role_oid((const char *) (port->user_name), true);
-
 	/*
 	 * A general case of failed attempt is when the status is not STATUS_OK.
 	 * However, also consider the case when user-oid is invalid. Because it
@@ -191,6 +193,22 @@ auth_monitor(Port *port, int status)
 		fai->key = key;
 		memset(&fai->total_successful_attempts, 0, sizeof(auth_mon_rec)
 			   - offsetof(auth_mon_rec, total_successful_attempts));
+		/*
+		 * We use InvalidOid to aggregate login attempts
+		 * of non-existing users. For them it makes no sense
+		 * to persist any particular rolename, so we leave 
+		 * rolename_at_last_login_attempt blank.
+	 	 */
+		if (key != InvalidOid) {
+			namestrcpy(&fai->rolename_at_last_login_attempt, port->user_name);
+		}
+	} else {
+		/*
+		 *  The role was renamed between two consecutive login attempts.
+		 */
+		if (namestrcmp(&fai->rolename_at_last_login_attempt,port->user_name) != 0){
+			namestrcpy(&fai->rolename_at_last_login_attempt, port->user_name);
+		}
 	}
 
 	/*
@@ -281,10 +299,11 @@ pg_auth_mon(PG_FUNCTION_ARGS)
 		 */
 		if (entry->total_hba_conflicts == 0 &&
 			entry->other_auth_failures == 0)
-			nulls[i] = true;
+			nulls[i++] = true;
 		else
-			values[i] = TimestampTzGetDatum(entry->last_failed_attempt_at);
+			values[i++] = TimestampTzGetDatum(entry->last_failed_attempt_at);
 
+		values[i] = NameGetDatum(&entry->rolename_at_last_login_attempt);
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
 	}
 

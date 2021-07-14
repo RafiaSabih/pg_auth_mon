@@ -7,7 +7,7 @@ ifdef ENABLE_GCOV
 	PG_CPPFLAGS += -g -ggdb -pg -O0 -fprofile-arcs -ftest-coverage
 endif
 EXTENSION = pg_auth_mon
-DATA = pg_auth_mon--1.0.sql
+DATA = pg_auth_mon--1.0.sql pg_auth_mon--1.0--1.1.sql
 
 REGRESS = pg_auth_mon
 
