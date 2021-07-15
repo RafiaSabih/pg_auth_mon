@@ -1,0 +1,7 @@
+pg_auth_mon.bc
+pg_auth_mon.o
+pg_auth_mon.so
+regression.diffs
+regression.out
+results/
+test
