@@ -124,12 +124,31 @@ fai_shmem_startup(void)
 /*
  * shmem_shutdown hook
  *
+ * Write content of the `pg_auth_mon` to regular Postgres log to make it searchable later. 
+ * 
  * Note: we don't bother with acquiring lock, because there should be no
  * other processes running when this is called.
  */
 static void
 fai_shmem_shutdown(int code, Datum arg)
 {
+	HASH_SEQ_STATUS status;
+	auth_mon_rec *entry;
+	const char *last_successful_login_at;
+	const char *last_failed_attempt_at;
+
+	elog(LOG, "logging the authentication data collected by the pg_auth_mon extension");
+	hash_seq_init(&status, auth_mon_ht);
+	while ((auth_mon_ht != NULL) && (entry = hash_seq_search(&status)) != NULL)
+	{
+		// TODO log rolename
+		last_successful_login_at = entry->last_successful_login_at == 0 ? "N/A" : timestamptz_to_str(entry->last_successful_login_at);
+		last_failed_attempt_at = entry->last_failed_attempt_at == 0 ? "N/A" : timestamptz_to_str(entry->last_failed_attempt_at);
+		elog(LOG, 
+		"total_successful_attempts: %d last_successful_login_at: %s last_failed_attempt_at: %s total_hba_conflicts: %d  other_auth_failures: %d ",
+		entry->total_successful_attempts, last_successful_login_at, last_failed_attempt_at, entry->total_hba_conflicts, entry->other_auth_failures);
+	}
+
 	auth_mon_ht = NULL;
 
 	return;
