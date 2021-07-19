@@ -32,7 +32,7 @@ jobs:
         # forbid creation of a main cluster when package is installed
         sudo sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf
         if [ $PG = 13 ]; then sudo sed -i -e "s/main/main $PG/" /etc/apt/sources.list.d/pgdg*.list && sudo apt-get -qq update; fi
-        apt-get -yq --no-install-suggests --no-install-recommends install postgresql-$PG postgresql-server-dev-$PG; then echo; fi
+        apt-get -yq --no-install-suggests --no-install-recommends install postgresql-$PG postgresql-server-dev-$PG
 
     - name: Compile and install pg_auth_mon
       run: |
