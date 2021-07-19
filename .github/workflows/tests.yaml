@@ -37,13 +37,16 @@ jobs:
         # forbid creation of a "main" cluster when a new postgresql-x.y server package is installed
         sudo sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf
 
-        # if [ $PG = 13 ]; then sudo sed -i -e "s/main/main $PG/" /etc/apt/sources.list.d/pgdg*.list && sudo apt-get -qq update; fi
         sudo apt-get --assume-yes --quiet --no-install-suggests --no-install-recommends install postgresql-$PG postgresql-server-dev-$PG
 
     - name: Compile and install pg_auth_mon
       run: |
         set -e
+
+        # utilities like pg_config are version-dependent, so we explicitly specify
+        # the correct path to avoid potential errors 
         export PATH=/usr/lib/postgresql/$PG/bin:$PATH
+
         sudo PATH=$PATH make USE_PGXS=1 ENABLE_GCOV=1 install
         sudo PATH=$PATH make USE_PGXS=1 ENABLE_GCOV=1 with_llvm=no clean all install
 
