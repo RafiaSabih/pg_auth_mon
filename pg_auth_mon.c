@@ -69,6 +69,10 @@ static shmem_startup_hook_type prev_shmem_startup_hook = NULL;
 
 static void fai_shmem_shutdown(int code, Datum arg);
 
+static void log_pg_auth_mon_data(void);
+
+static TimestampTz last_log_timestamp = 0;
+
 /* Hash table in the shared memory */
 static HTAB *auth_mon_ht;
 
@@ -124,7 +128,6 @@ fai_shmem_startup(void)
 /*
  * shmem_shutdown hook
  *
- * Write content of the `pg_auth_mon` to regular Postgres log to make it searchable later. 
  * 
  * Note: we don't bother with acquiring lock, because there should be no
  * other processes running when this is called.
@@ -132,16 +135,36 @@ fai_shmem_startup(void)
 static void
 fai_shmem_shutdown(int code, Datum arg)
 {
+	
+	log_pg_auth_mon_data();
+	auth_mon_ht = NULL;
+
+	return;
+}
+
+/*
+ * Write content of the `pg_auth_mon` to regular Postgres log to make it searchable later. 
+ * 
+ * The caller must have the auth_mon_lock in the LW_EXCLUSIVE mode.
+ */
+static void log_pg_auth_mon_data(){
+
 	HASH_SEQ_STATUS status;
 	auth_mon_rec *entry;
 	const char *last_successful_login_at;
 	const char *last_failed_attempt_at;
+	TimestampTz now = GetCurrentTimestamp();
 
-	elog(LOG, "logging the authentication data collected by the pg_auth_mon extension");
+	if (TimestampDifferenceExceeds(last_log_timestamp, now, 3600000))
+		return;
+	last_log_timestamp = now;
+
+	elog(LOG, "logging authentication data collected by the pg_auth_mon extension");
 	hash_seq_init(&status, auth_mon_ht);
 	while ((auth_mon_ht != NULL) && (entry = hash_seq_search(&status)) != NULL)
 	{
 		// TODO log rolename
+		// XXX beware timestamptz_to_str uses the same static buffer to store results of all calls
 		last_successful_login_at = entry->last_successful_login_at == 0 ? "N/A" : timestamptz_to_str(entry->last_successful_login_at);
 		last_failed_attempt_at = entry->last_failed_attempt_at == 0 ? "N/A" : timestamptz_to_str(entry->last_failed_attempt_at);
 		elog(LOG, 
@@ -149,9 +172,6 @@ fai_shmem_shutdown(int code, Datum arg)
 		entry->total_successful_attempts, last_successful_login_at, last_failed_attempt_at, entry->total_hba_conflicts, entry->other_auth_failures);
 	}
 
-	auth_mon_ht = NULL;
-
-	return;
 }
 
 /*
@@ -232,6 +252,8 @@ auth_monitor(Port *port, int status)
 		/* Always update the timestamp for the last successful login */
 		fai->last_successful_login_at = GetCurrentTimestamp();
 	}
+
+	log_pg_auth_mon_data();
 
 	LWLockRelease(auth_mon_lock);
 }
@@ -351,6 +373,8 @@ _PG_init(void)
 void
 _PG_fini(void)
 {
+	log_pg_auth_mon_data();
+
 	/* Uninstall hooks. */
 	shmem_startup_hook = prev_shmem_startup_hook;
 	ClientAuthentication_hook = auth_monitor;
