@@ -20,22 +20,33 @@ jobs:
         - '11'
         - '12'
         - '13'
+        - '14'
 
     steps:
     - uses: actions/checkout@v1
     - name: Set up packages
       run: |
         set -e
-        sudo service postgresql stop
+
+        # add the official Ubuntu/Debian APT repository for PostgreSQL
+        sudo sh -c "echo \"deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main $PG\" > /etc/apt/sources.list.d/pgdg.list"
+        sudo apt-get update
+
+        sudo apt-get install --assume-yes --quiet --no-install-suggests --no-install-recommends curl postgresql-common lcov libkrb5-dev
+
+        # forbid creation of a "main" cluster when a new postgresql-x.y server package is installed
         sudo sed -ri 's/#(create_main_cluster) .*$/\1 = false/' /etc/postgresql-common/createcluster.conf
-        if [ $PG = 13 ]; then sudo sed -i -e "s/main/main $PG/" /etc/apt/sources.list.d/pgdg*.list && sudo apt-get -qq update; fi
-        if ! sudo -E apt-get -yq --no-install-suggests --no-install-recommends install postgresql-$PG postgresql-server-dev-$PG; then echo; fi
-        sudo pip install --upgrade cpp-coveralls
+
+        sudo apt-get --assume-yes --quiet --no-install-suggests --no-install-recommends install postgresql-$PG postgresql-server-dev-$PG
 
     - name: Compile and install pg_auth_mon
       run: |
         set -e
+
+        # utilities like pg_config are version-dependent, so we explicitly specify
+        # the correct path to avoid potential errors 
         export PATH=/usr/lib/postgresql/$PG/bin:$PATH
+
         sudo PATH=$PATH make USE_PGXS=1 ENABLE_GCOV=1 install
         sudo PATH=$PATH make USE_PGXS=1 ENABLE_GCOV=1 with_llvm=no clean all install
 
