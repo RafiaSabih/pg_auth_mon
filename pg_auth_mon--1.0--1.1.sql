@@ -8,7 +8,8 @@
 \echo Use "CREATE EXTENSION pg_auth_mon" to load this file. \quit
 
 -- re-create both the function and the view to add info about rolenames of deleted users
-DROP FUNCTION IF EXISTS pg_auth_mon() CASCADE;
+ALTER EXTENSION pg_auth_mon DROP FUNCTION pg_auth_mon();
+DROP FUNCTION IF EXISTS pg_auth_mon();
 
 CREATE FUNCTION pg_auth_mon(
     OUT uid oid,
