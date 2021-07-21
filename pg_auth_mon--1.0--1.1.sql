@@ -8,6 +8,10 @@
 \echo Use "CREATE EXTENSION pg_auth_mon" to load this file. \quit
 
 -- re-create both the function and the view to add info about rolenames of deleted users
+
+ALTER EXTENSION pg_auth_mon DROP VIEW pg_auth_mon;
+DROP VIEW IF EXISTS pg_auth_mon;
+
 ALTER EXTENSION pg_auth_mon DROP FUNCTION pg_auth_mon();
 DROP FUNCTION IF EXISTS pg_auth_mon();
 
@@ -24,7 +28,6 @@ RETURNS SETOF record
 AS 'MODULE_PATHNAME'
 LANGUAGE C STRICT VOLATILE;
 
-DROP VIEW IF EXISTS pg_auth_mon;
 CREATE VIEW pg_auth_mon AS
   SELECT
     COALESCE(pg_roles.rolname, rolename_at_last_login_attempt) AS rolname, 
