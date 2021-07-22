@@ -5,14 +5,14 @@
  */
 
 -- complain if script is sourced in psql, rather than via ALTER EXTENSION
-\echo Use "CREATE EXTENSION pg_auth_mon" to load this file. \quit
+\echo Use "CREATE EXTENSION pg_auth_mon UPDATE TO '1.1'" to load this file. \quit
 
 -- re-create both the function and the view to add info about rolenames of deleted users
 
 ALTER EXTENSION pg_auth_mon DROP VIEW pg_auth_mon;
-DROP VIEW IF EXISTS pg_auth_mon;
-
 ALTER EXTENSION pg_auth_mon DROP FUNCTION pg_auth_mon();
+
+DROP VIEW IF EXISTS pg_auth_mon;
 DROP FUNCTION IF EXISTS pg_auth_mon();
 
 CREATE FUNCTION pg_auth_mon(
