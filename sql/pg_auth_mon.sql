@@ -7,7 +7,7 @@ create role auth_to_be_renamed with login password 'postgres';
 
 create database testdb;
 
-create extension pg_auth_mon;
+create extension pg_auth_mon version '1.0';
 
 --1.Successful Login attempt
 \! PGPASSWORD=postgres psql -X -U auth_super -d testdb -c "select 1"
@@ -25,12 +25,18 @@ select rolname, successful_attempts, total_hba_conflicts, other_auth_failures fr
 \! PGPASSWORD=postgres psql -X -U auth_test -d testdb -c "select 1" 2>&1 | sed 's/^.* FATAL: */FATAL: /'
 select rolname, successful_attempts, total_hba_conflicts, other_auth_failures from pg_auth_mon where rolname like 'auth_%' order by rolname;
 
---5. Rolname is not empty for deleted users
+--5. Test upgrade to version '1.1'
+-- we check the extension state after test 4 survives the upgrade to ensure the data from the previous version is still accessible.
+alter extension pg_auth_mon update to '1.1';
+select extversion from pg_extension where extname = 'pg_auth_mon';
+select rolname, successful_attempts, total_hba_conflicts, other_auth_failures from pg_auth_mon where rolname like 'auth_%' order by rolname;
+
+--6. Rolname is not empty for deleted users
 \! PGPASSWORD=foobar psql -X -U auth_to_be_deleted -d testdb -c "select 1"
 drop role auth_to_be_deleted;
 select rolname, successful_attempts, total_hba_conflicts, other_auth_failures from pg_auth_mon where rolname like 'auth_%' order by rolname;
 
---6. The rolname at the last login attempt is shown even if the role gets renamed and deleted afterwards
+--7. The rolname at the last login attempt is shown even if the role gets renamed and deleted afterwards
 \! PGPASSWORD=postgres psql -X -U auth_to_be_renamed -d testdb -c "select 1"
 alter role auth_to_be_renamed rename to auth_renamed;
 alter role auth_renamed with password 'postgres';

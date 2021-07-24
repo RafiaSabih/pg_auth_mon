@@ -4,7 +4,7 @@ create role auth_test with login password 'wrongpassword';
 create role auth_to_be_deleted with login password 'foobar';
 create role auth_to_be_renamed with login password 'postgres';
 create database testdb;
-create extension pg_auth_mon;
+create extension pg_auth_mon version '1.0';
 --1.Successful Login attempt
 \! PGPASSWORD=postgres psql -X -U auth_super -d testdb -c "select 1"
  ?column? 
@@ -48,7 +48,24 @@ select rolname, successful_attempts, total_hba_conflicts, other_auth_failures fr
  auth_test    |                   0 |                   0 |                   1
 (3 rows)
 
---5. Rolname is not empty for deleted users
+--5. Test upgrade to version '1.1'
+-- we check the extension state after test 4 survives the upgrade to ensure the data from the previous version is still accessible.
+alter extension pg_auth_mon update to '1.1';
+select extversion from pg_extension where extname = 'pg_auth_mon';
+ extversion 
+------------
+ 1.1
+(1 row)
+
+select rolname, successful_attempts, total_hba_conflicts, other_auth_failures from pg_auth_mon where rolname like 'auth_%' order by rolname;
+   rolname    | successful_attempts | total_hba_conflicts | other_auth_failures 
+--------------+---------------------+---------------------+---------------------
+ auth_nologin |                   1 |                   0 |                   0
+ auth_super   |                   1 |                   0 |                   0
+ auth_test    |                   0 |                   0 |                   1
+(3 rows)
+
+--6. Rolname is not empty for deleted users
 \! PGPASSWORD=foobar psql -X -U auth_to_be_deleted -d testdb -c "select 1"
  ?column? 
 ----------
@@ -65,7 +82,7 @@ select rolname, successful_attempts, total_hba_conflicts, other_auth_failures fr
  auth_to_be_deleted |                   1 |                   0 |                   0
 (4 rows)
 
---6. The rolname at the last login attempt is shown even if the role gets renamed and deleted afterwards
+--7. The rolname at the last login attempt is shown even if the role gets renamed and deleted afterwards
 \! PGPASSWORD=postgres psql -X -U auth_to_be_renamed -d testdb -c "select 1"
  ?column? 
 ----------
