@@ -262,6 +262,7 @@ pg_auth_mon(PG_FUNCTION_ARGS)
 	return (Datum) 0;
 }
 
+
 Datum
 pg_auth_mon_1_1(PG_FUNCTION_ARGS)
 {

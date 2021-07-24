@@ -32,5 +32,5 @@ CREATE VIEW pg_auth_mon AS
   SELECT
     COALESCE(pg_roles.rolname, rolename_at_last_login_attempt) AS rolname, 
     (pg_roles.rolname IS NULL) AS deleted, 
-    uid, successful_attempts, last_successful_TS, total_hba_conflicts, other_auth_failures, last_failed_TS
+    (CASE WHEN pg_roles.rolname IS NULL THEN 0 ELSE uid END) AS uid, successful_attempts, last_successful_TS, total_hba_conflicts, other_auth_failures, last_failed_TS
   FROM pg_auth_mon() LEFT JOIN pg_roles ON oid = uid;
