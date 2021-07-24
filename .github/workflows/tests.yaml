@@ -60,6 +60,14 @@ jobs:
         gcov -lr *.[ch]
         lcov --capture --directory . --no-external -o lcov.info
 
+    - name: Coveralls Parallel
+      uses: coverallsapp/github-action@master
+      with:
+        path-to-lcov: lcov.info
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        flag-name: ${{ matrix.postgres-version }}
+        parallel: true
+
   finish:
     needs: tests
     runs-on: ubuntu-latest
