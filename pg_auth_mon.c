@@ -34,14 +34,28 @@
 Datum		pg_auth_mon(PG_FUNCTION_ARGS);
 
 PG_FUNCTION_INFO_V1(pg_auth_mon);
+PG_FUNCTION_INFO_V1(pg_auth_mon_1_1);
 
 PG_MODULE_MAGIC;
 
 extern void _PG_init(void);
 extern void _PG_fini(void);
 
-#define AUTH_MON_COLS  7
+/* Number of output arguments (columns) for various API versions */
+#define PG_AUTH_MON_COLS_V1_0  6
+#define PG_AUTH_MON_COLS_V1_1  7
+#define PG_AUTH_MON_COLS       7 /* max of the above */
+
 #define AUTH_MON_HT_SIZE       1024
+
+/*
+ * Version number to support older versions of extension's objects
+ */
+typedef enum pgauthmonVersion
+{
+	PG_AUTH_MON_V1_0 = 0,
+	PG_AUTH_MON_V1_1,
+} pgauthmonVersion;
 
 /*
  * A record for a login attempt.
@@ -71,6 +85,7 @@ static ClientAuthentication_hook_type original_client_auth_hook = NULL;
 static shmem_startup_hook_type prev_shmem_startup_hook = NULL;
 
 static void fai_shmem_shutdown(int code, Datum arg);
+static Datum pg_auth_mon_internal(PG_FUNCTION_ARGS, pgauthmonVersion api_version);
 
 /* Hash table in the shared memory */
 static HTAB *auth_mon_ht;
@@ -235,11 +250,44 @@ auth_monitor(Port *port, int status)
 	LWLockRelease(auth_mon_lock);
 }
 
+
 /*
- * This is called when user requests the pg_auth_mon view.
+ * Entry point for the pg_auth_mon v 1.0
  */
 Datum
 pg_auth_mon(PG_FUNCTION_ARGS)
+{
+	pg_auth_mon_internal(fcinfo, PG_AUTH_MON_V1_0);
+
+	return (Datum) 0;
+}
+
+Datum
+pg_auth_mon_1_1(PG_FUNCTION_ARGS)
+{
+	pg_auth_mon_internal(fcinfo, PG_AUTH_MON_V1_1);
+
+	return (Datum) 0;
+}
+
+
+/*
+ * Retrieve authentication statistics for the pg_auth_mon view.
+ *
+ * The SQL signature of this function has changed in version 1.1, and may change again in the future. 
+ *
+ * We provide older signature to support the case where a newer version of this
+ * loadable module is being used with an old SQL declaration of the function.
+ * That is, Postgres started with the new pg_auth_mon.so, but ALTER EXTENSION pg_auth_mon UPDATE wasn't executed yet. 
+ * It is a typical scenario we see during the rolling upgrade: a replica is running with the new .so file, but the primary with the old one.
+ *
+ * The expected API version is identified by embedding it in the C name of the
+ * function except for the version 1.0
+ * 
+ * Modeled after pg_stat_statements
+ */
+Datum
+pg_auth_mon_internal(PG_FUNCTION_ARGS, pgauthmonVersion api_version)
 {
 	ReturnSetInfo *rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
 	TupleDesc	tupdesc;
@@ -263,6 +311,20 @@ pg_auth_mon(PG_FUNCTION_ARGS)
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
+	/* safety check for the expected number of arguments */
+	switch (tupdesc->natts){
+		case PG_AUTH_MON_COLS_V1_0:
+			if (api_version != PG_AUTH_MON_V1_0)
+				elog(ERROR, "incorrect number of output arguments");
+			break;
+		case PG_AUTH_MON_COLS_V1_1:
+			if (api_version != PG_AUTH_MON_V1_1)
+				elog(ERROR, "incorrect number of output arguments");
+			break;
+		default:
+			elog(ERROR, "incorrect number of output arguments");
+	}
+
 	tupstore = tuplestore_begin_heap(true, false, work_mem);
 
 	MemoryContextSwitchTo(oldcontext);
@@ -272,8 +334,8 @@ pg_auth_mon(PG_FUNCTION_ARGS)
 	hash_seq_init(&status, auth_mon_ht);
 	while ((auth_mon_ht != NULL) && (entry = hash_seq_search(&status)) != NULL)
 	{
-		Datum		values[AUTH_MON_COLS];
-		bool		nulls[AUTH_MON_COLS] = {0};
+		Datum		values[PG_AUTH_MON_COLS];
+		bool		nulls[PG_AUTH_MON_COLS] = {0};
 		int			i = 0;
 
 		memset(values, 0, sizeof(values));
@@ -303,9 +365,16 @@ pg_auth_mon(PG_FUNCTION_ARGS)
 		else
 			values[i++] = TimestampTzGetDatum(entry->last_failed_attempt_at);
 
-		values[i] = NameGetDatum(&entry->rolename_at_last_login_attempt);
+		if (api_version >= PG_AUTH_MON_V1_1) {
+			values[i] = NameGetDatum(&entry->rolename_at_last_login_attempt);
+		}
+
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
 	}
+
+	Assert(i == (api_version == PG_AUTH_MON_V1_0 ? PG_AUTH_MON_COLS_V1_0 :
+				api_version == PG_AUTH_MON_V1_1 ? PG_AUTH_MON_COLS_V1_1 :
+				-1 /* fail if the assert is not updates in the new version */ ));
 
 	LWLockRelease(auth_mon_lock);
 

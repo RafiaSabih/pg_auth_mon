@@ -25,7 +25,7 @@ CREATE FUNCTION pg_auth_mon(
     OUT rolename_at_last_login_attempt name
 )
 RETURNS SETOF record
-AS 'MODULE_PATHNAME'
+AS 'MODULE_PATHNAME', 'pg_auth_mon_1_1'
 LANGUAGE C STRICT VOLATILE;
 
 CREATE VIEW pg_auth_mon AS
