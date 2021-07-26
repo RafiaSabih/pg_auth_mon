@@ -36,7 +36,7 @@ select rolname, successful_attempts, total_hba_conflicts, other_auth_failures fr
 drop role auth_to_be_deleted;
 select rolname, successful_attempts, total_hba_conflicts, other_auth_failures from pg_auth_mon where rolname like 'auth_%' order by rolname;
 
---7. The rolname at the last login attempt is shown even if the role gets renamed and deleted afterwards
+--7. The rolname at the last login attempt (not the initial one) is shown when a role is renamed before deletion
 \! PGPASSWORD=postgres psql -X -U auth_to_be_renamed -d testdb -c "select 1"
 alter role auth_to_be_renamed rename to auth_renamed;
 alter role auth_renamed with password 'postgres';
