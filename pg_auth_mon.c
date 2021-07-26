@@ -54,6 +54,13 @@ typedef struct auth_mon_rec
 	int			other_auth_failures;
 }			auth_mon_rec;
 
+typedef struct authmonSharedState 
+{
+	TimestampTz last_log_timestamp;
+} authmonSharedState;
+
+static authmonSharedState *amss = NULL;
+
 /* LWlock to mange the reading and writing the hash table. */
 #if PG_VERSION_NUM < 90400
 LWLockId	auth_mon_lock;
@@ -71,7 +78,6 @@ static void fai_shmem_shutdown(int code, Datum arg);
 
 static void log_pg_auth_mon_data(void);
 
-static TimestampTz last_log_timestamp = 0;
 
 /* Hash table in the shared memory */
 static HTAB *auth_mon_ht;
@@ -83,16 +89,25 @@ static void
 fai_shmem_startup(void)
 {
 	HASHCTL		info;
+	bool found;
 
 	if (prev_shmem_startup_hook)
 		prev_shmem_startup_hook();
 
 	auth_mon_ht = NULL;
+	amss = NULL;
 
 	/*
 	 * Create or attach to the shared memory state, including hash table
 	 */
 	LWLockAcquire(AddinShmemInitLock, LW_EXCLUSIVE);
+
+	amss = ShmemInitStruct("pg_auth_mon",
+						   sizeof(authmonSharedState),
+						   &found);
+	if (!found){
+		amss->last_log_timestamp = 0;
+	}
 
 	memset(&info, 0, sizeof(info));
 	info.keysize = sizeof(Oid);
@@ -135,7 +150,7 @@ fai_shmem_startup(void)
 static void
 fai_shmem_shutdown(int code, Datum arg)
 {
-	
+
 	log_pg_auth_mon_data();
 	auth_mon_ht = NULL;
 
@@ -153,11 +168,16 @@ static void log_pg_auth_mon_data(){
 	auth_mon_rec *entry;
 	const char *last_successful_login_at;
 	const char *last_failed_attempt_at;
+	int waittime;
 	TimestampTz now = GetCurrentTimestamp();
 
-	if (TimestampDifferenceExceeds(last_log_timestamp, now, 3600000))
+	/* 
+	 * log at most once in an hour 
+	*/
+	waittime = 1000 * 60 * 60;
+	if (!(TimestampDifferenceExceeds(amss->last_log_timestamp, now, waittime)))
 		return;
-	last_log_timestamp = now;
+	amss->last_log_timestamp = now;
 
 	elog(LOG, "logging authentication data collected by the pg_auth_mon extension");
 	hash_seq_init(&status, auth_mon_ht);
@@ -180,7 +200,11 @@ static void log_pg_auth_mon_data(){
 static Size
 fai_memsize(void)
 {
-	return hash_estimate_size(AUTH_MON_HT_SIZE, sizeof(auth_mon_rec));
+	Size size;
+
+	size = MAXALIGN(sizeof(authmonSharedState));
+	size = add_size(size, hash_estimate_size(AUTH_MON_HT_SIZE, sizeof(auth_mon_rec)));
+	return size;
 
 }
 
@@ -328,7 +352,6 @@ pg_auth_mon(PG_FUNCTION_ARGS)
 
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
 	}
-
 	LWLockRelease(auth_mon_lock);
 
 	/* clean up and return the tuplestore */
