@@ -57,16 +57,17 @@ typedef struct auth_mon_rec
 typedef struct authmonSharedState 
 {
 	TimestampTz last_log_timestamp;
+    /* LWLock to manage the reading and writing the hash table. */
+	#if PG_VERSION_NUM < 90400
+	LWLockId	lock;
+	#else
+	LWLock	   *lock;
+	#endif
 } authmonSharedState;
 
 static authmonSharedState *amss = NULL;
 
-/* LWlock to mange the reading and writing the hash table. */
-#if PG_VERSION_NUM < 90400
-LWLockId	auth_mon_lock;
-#else
-LWLock	   *auth_mon_lock;
-#endif
+
 
 /* Original Hook */
 static ClientAuthentication_hook_type original_client_auth_hook = NULL;
@@ -106,7 +107,12 @@ fai_shmem_startup(void)
 						   sizeof(authmonSharedState),
 						   &found);
 	if (!found){
-		amss->last_log_timestamp = 0;
+		amss->last_log_timestamp = GetCurrentTimestamp();
+#if PG_VERSION_NUM < 90600
+		amss->lock = LWLockAssign();
+#else
+		amss->lock = &(GetNamedLWLockTranche("pg_auth_mon"))->lock;
+#endif
 	}
 
 	memset(&info, 0, sizeof(info));
@@ -125,11 +131,7 @@ fai_shmem_startup(void)
 								&info,
 								HASH_ELEM);
 #endif
-#if PG_VERSION_NUM < 90600
-	auth_mon_lock = LWLockAssign();
-#else
-	auth_mon_lock = &(GetNamedLWLockTranche("auth_mon_lock"))->lock;
-#endif
+
 	LWLockRelease(AddinShmemInitLock);
 
 	/*
@@ -160,7 +162,7 @@ fai_shmem_shutdown(int code, Datum arg)
 /*
  * Write content of the `pg_auth_mon` to regular Postgres log to make it searchable later. 
  * 
- * The caller must have the auth_mon_lock in the LW_EXCLUSIVE mode.
+ * The caller must hold the amss->lock in the LW_EXCLUSIVE mode.
  */
 static void log_pg_auth_mon_data(){
 
@@ -244,7 +246,7 @@ auth_monitor(Port *port, int status)
 	hba_reject = (port->hba->auth_method == uaReject) ||
 		(port->hba->auth_method == uaImplicitReject);
 
-	LWLockAcquire(auth_mon_lock, LW_EXCLUSIVE);
+	LWLockAcquire(amss->lock, LW_EXCLUSIVE);
 
 	fai = (auth_mon_rec *) hash_search(auth_mon_ht, &key, HASH_ENTER_NULL,
 									   &found);
@@ -279,7 +281,7 @@ auth_monitor(Port *port, int status)
 
 	log_pg_auth_mon_data();
 
-	LWLockRelease(auth_mon_lock);
+	LWLockRelease(amss->lock);
 }
 
 /*
@@ -314,7 +316,7 @@ pg_auth_mon(PG_FUNCTION_ARGS)
 
 	MemoryContextSwitchTo(oldcontext);
 
-	LWLockAcquire(auth_mon_lock, LW_SHARED);
+	LWLockAcquire(amss->lock, LW_SHARED);
 
 	hash_seq_init(&status, auth_mon_ht);
 	while ((auth_mon_ht != NULL) && (entry = hash_seq_search(&status)) != NULL)
@@ -352,7 +354,7 @@ pg_auth_mon(PG_FUNCTION_ARGS)
 
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
 	}
-	LWLockRelease(auth_mon_lock);
+	LWLockRelease(amss->lock);
 
 	/* clean up and return the tuplestore */
 	tuplestore_donestoring(tupstore);
@@ -379,7 +381,7 @@ _PG_init(void)
 #if PG_VERSION_NUM < 90600
 	RequestAddinLWLocks(1);
 #else
-	RequestNamedLWLockTranche("auth_mon_lock", 1);
+	RequestNamedLWLockTranche("pg_auth_mon", 1);
 #endif
 
 	/* Install Hooks */
