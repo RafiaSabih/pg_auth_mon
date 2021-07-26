@@ -49,7 +49,6 @@ select rolname, successful_attempts, total_hba_conflicts, other_auth_failures fr
 (3 rows)
 
 --5. Test upgrade to version '1.1'
--- we check the extension state after test 4 survives the upgrade to ensure the data from the previous version is still accessible.
 alter extension pg_auth_mon update to '1.1';
 select extversion from pg_extension where extname = 'pg_auth_mon';
  extversion 
@@ -57,6 +56,7 @@ select extversion from pg_extension where extname = 'pg_auth_mon';
  1.1
 (1 row)
 
+-- ensure the data from the previous version is still accessible
 select rolname, successful_attempts, total_hba_conflicts, other_auth_failures from pg_auth_mon where rolname like 'auth_%' order by rolname;
    rolname    | successful_attempts | total_hba_conflicts | other_auth_failures 
 --------------+---------------------+---------------------+---------------------

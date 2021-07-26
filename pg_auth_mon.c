@@ -262,7 +262,6 @@ pg_auth_mon(PG_FUNCTION_ARGS)
 	return (Datum) 0;
 }
 
-
 Datum
 pg_auth_mon_1_1(PG_FUNCTION_ARGS)
 {
@@ -275,11 +274,11 @@ pg_auth_mon_1_1(PG_FUNCTION_ARGS)
 /*
  * Retrieve authentication statistics for the pg_auth_mon view.
  *
- * The SQL signature of this function has changed in version 1.1, and may change again in the future. 
+ * The SQL API of this function has changed in version 1.1, and may change again in the future. 
  *
- * We provide older signature to support the case where a newer version of this
- * loadable module is being used with an old SQL declaration of the function.
- * That is, Postgres started with the new pg_auth_mon.so, but ALTER EXTENSION pg_auth_mon UPDATE wasn't executed yet. 
+ * We support older APIs in case a newer version of this loadable module 
+ * is being used with an old SQL declaration of the function.
+ * That is, Postgres starts with the new pg_auth_mon.so, but "ALTER EXTENSION pg_auth_mon UPDATE" wasn't executed yet. 
  * It is a typical scenario we see during the rolling upgrade: a replica is running with the new .so file, but the primary with the old one.
  *
  * The expected API version is identified by embedding it in the C name of the
@@ -375,7 +374,7 @@ pg_auth_mon_internal(PG_FUNCTION_ARGS, pgauthmonVersion api_version)
 
 	Assert(i == (api_version == PG_AUTH_MON_V1_0 ? PG_AUTH_MON_COLS_V1_0 :
 				api_version == PG_AUTH_MON_V1_1 ? PG_AUTH_MON_COLS_V1_1 :
-				-1 /* fail if the assert is not updates in the new version */ ));
+				-1 /* fail if the assert is not updated in the new version */ ));
 
 	LWLockRelease(auth_mon_lock);
 

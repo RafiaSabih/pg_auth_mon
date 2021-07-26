@@ -1,7 +1,7 @@
 /* contrib/pg_auth_mon/pg_auth_mon--1.0--1.1.sql */
 /*
- * Author:  rsabih
- * Created: Apr 8, 2019
+ * Author:  sdudoladov
+ * Created: Jul 27, 2021
  */
 
 -- complain if script is sourced in psql, rather than via ALTER EXTENSION

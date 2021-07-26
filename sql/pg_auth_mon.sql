@@ -26,9 +26,9 @@ select rolname, successful_attempts, total_hba_conflicts, other_auth_failures fr
 select rolname, successful_attempts, total_hba_conflicts, other_auth_failures from pg_auth_mon where rolname like 'auth_%' order by rolname;
 
 --5. Test upgrade to version '1.1'
--- we check the extension state after test 4 survives the upgrade to ensure the data from the previous version is still accessible.
 alter extension pg_auth_mon update to '1.1';
 select extversion from pg_extension where extname = 'pg_auth_mon';
+-- ensure the data from the previous version is still accessible
 select rolname, successful_attempts, total_hba_conflicts, other_auth_failures from pg_auth_mon where rolname like 'auth_%' order by rolname;
 
 --6. Rolname is not empty for deleted users
