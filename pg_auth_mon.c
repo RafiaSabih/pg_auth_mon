@@ -134,7 +134,6 @@ fai_shmem_startup(void)
 /*
  * shmem_shutdown hook
  *
- * 
  * Note: we don't bother with acquiring lock, because there should be no
  * other processes running when this is called.
  */
@@ -344,6 +343,7 @@ pg_auth_mon(PG_FUNCTION_ARGS)
 
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
 	}
+
 	LWLockRelease(auth_mon_lock);
 
 	/* clean up and return the tuplestore */
