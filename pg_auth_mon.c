@@ -54,12 +54,6 @@ typedef struct auth_mon_rec
 	int			other_auth_failures;
 }			auth_mon_rec;
 
-typedef struct authmonSharedState 
-{
-	TimestampTz last_log_timestamp;
-} authmonSharedState;
-
-static authmonSharedState *amss = NULL;
 
 /* LWlock to mange the reading and writing the hash table. */
 #if PG_VERSION_NUM < 90400
@@ -74,13 +68,15 @@ static ClientAuthentication_hook_type original_client_auth_hook = NULL;
 /* Saved hook values in case of unload */
 static shmem_startup_hook_type prev_shmem_startup_hook = NULL;
 
+/* Hash table in the shared memory */
+static HTAB *auth_mon_ht;
+
+/* timestamp in shared memory used to limit the frequency of logging pg_auth_mon data */
+static TimestampTz *last_log_timestamp;
+
 static void fai_shmem_shutdown(int code, Datum arg);
 
 static void log_pg_auth_mon_data(void);
-
-
-/* Hash table in the shared memory */
-static HTAB *auth_mon_ht;
 
 /*
  * shmem_startup hook: allocate and attach to shared memory,
@@ -89,25 +85,20 @@ static void
 fai_shmem_startup(void)
 {
 	HASHCTL		info;
-	bool found;
 
 	if (prev_shmem_startup_hook)
 		prev_shmem_startup_hook();
 
 	auth_mon_ht = NULL;
-	amss = NULL;
+	last_log_timestamp = NULL;
 
 	/*
 	 * Create or attach to the shared memory state, including hash table
 	 */
 	LWLockAcquire(AddinShmemInitLock, LW_EXCLUSIVE);
 
-	amss = ShmemInitStruct("pg_auth_mon",
-						   sizeof(authmonSharedState),
-						   &found);
-	if (!found){
-		amss->last_log_timestamp = 0;
-	}
+	last_log_timestamp = ShmemAlloc(sizeof(TimestampTz));
+	*last_log_timestamp = GetCurrentTimestamp();
 
 	memset(&info, 0, sizeof(info));
 	info.keysize = sizeof(Oid);
@@ -152,6 +143,7 @@ fai_shmem_shutdown(int code, Datum arg)
 {
 
 	log_pg_auth_mon_data();
+	last_log_timestamp = NULL;
 	auth_mon_ht = NULL;
 
 	return;
@@ -168,16 +160,16 @@ static void log_pg_auth_mon_data(){
 	auth_mon_rec *entry;
 	const char *last_successful_login_at;
 	const char *last_failed_attempt_at;
-	int waittime;
-	TimestampTz now = GetCurrentTimestamp();
 
 	/* 
 	 * log at most once in an hour 
 	*/
-	waittime = 1000 * 60 * 60;
-	if (!(TimestampDifferenceExceeds(amss->last_log_timestamp, now, waittime)))
+	int waittime = 1000 * 60 * 60;
+	TimestampTz now = GetCurrentTimestamp();
+
+	if (!(TimestampDifferenceExceeds(*last_log_timestamp, now, waittime)))
 		return;
-	amss->last_log_timestamp = now;
+	*last_log_timestamp = now;
 
 	elog(LOG, "logging authentication data collected by the pg_auth_mon extension");
 	hash_seq_init(&status, auth_mon_ht);
@@ -202,7 +194,7 @@ fai_memsize(void)
 {
 	Size size;
 
-	size = MAXALIGN(sizeof(authmonSharedState));
+	size = MAXALIGN(sizeof(TimestampTz));
 	size = add_size(size, hash_estimate_size(AUTH_MON_HT_SIZE, sizeof(auth_mon_rec)));
 	return size;
 
