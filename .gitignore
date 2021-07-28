@@ -5,3 +5,4 @@ regression.diffs
 regression.out
 results/
 test
+lcov.info
