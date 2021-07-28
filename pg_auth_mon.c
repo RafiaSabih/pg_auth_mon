@@ -140,7 +140,6 @@ static void
 fai_shmem_shutdown(int code, Datum arg)
 {
 
-	log_pg_auth_mon_data();
 	last_log_timestamp = NULL;
 	auth_mon_ht = NULL;
 
