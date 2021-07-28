@@ -390,6 +390,6 @@ _PG_fini(void)
 
 	/* Uninstall hooks. */
 	shmem_startup_hook = prev_shmem_startup_hook;
-	ClientAuthentication_hook = auth_monitor;
+	ClientAuthentication_hook = original_client_auth_hook;
 
 }
