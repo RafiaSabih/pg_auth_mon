@@ -54,8 +54,7 @@ typedef struct auth_mon_rec
 	int			other_auth_failures;
 }			auth_mon_rec;
 
-
-/* LWlock to mange the reading and writing the hash table. */
+/* LWlock to manage the reading and writing the hash table. */
 #if PG_VERSION_NUM < 90400
 LWLockId	auth_mon_lock;
 #else
