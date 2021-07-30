@@ -432,12 +432,14 @@ pg_auth_mon_internal(PG_FUNCTION_ARGS, pgauthmonVersion api_version)
 			values[i] = NameGetDatum(&entry->rolename_at_last_login_attempt);
 		}
 
+		Assert(i == (api_version == PG_AUTH_MON_V1_0 ? PG_AUTH_MON_COLS_V1_0 :
+				api_version == PG_AUTH_MON_V1_1 ? PG_AUTH_MON_COLS_V1_1 :
+				-1 /* fail if the assert is not updated in the new version */ ));
+
 		tuplestore_putvalues(tupstore, tupdesc, values, nulls);
 	}
 
-	Assert(i == (api_version == PG_AUTH_MON_V1_0 ? PG_AUTH_MON_COLS_V1_0 :
-				api_version == PG_AUTH_MON_V1_1 ? PG_AUTH_MON_COLS_V1_1 :
-				-1 /* fail if the assert is not updated in the new version */ ));
+
 
 	LWLockRelease(auth_mon_lock);
 
