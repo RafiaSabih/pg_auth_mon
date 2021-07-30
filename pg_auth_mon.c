@@ -482,8 +482,6 @@ _PG_init(void)
 void
 _PG_fini(void)
 {
-	log_pg_auth_mon_data();
-
 	/* Uninstall hooks. */
 	shmem_startup_hook = prev_shmem_startup_hook;
 	ClientAuthentication_hook = original_client_auth_hook;
