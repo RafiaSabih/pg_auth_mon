@@ -171,7 +171,6 @@ fai_shmem_shutdown(int code, Datum arg)
 /*
  * Write content of the `pg_auth_mon` to regular Postgres log to make it searchable later. 
  * 
- * The caller must have the auth_mon_lock in the LW_EXCLUSIVE mode.
  */
 static void log_pg_auth_mon_data(){
 
@@ -180,15 +179,7 @@ static void log_pg_auth_mon_data(){
 	const char *last_successful_login_at;
 	const char *last_failed_attempt_at;
 
-	/*
-	 * log at most once in an day 
-	*/
-	int waittime = 1000 * 60 * 60 * 24;
-	TimestampTz now = GetCurrentTimestamp();
-
-	if (!(TimestampDifferenceExceeds(*last_log_timestamp, now, waittime)))
-		return;
-	*last_log_timestamp = now;
+	LWLockAcquire(auth_mon_lock, LW_SHARED);
 
 	hash_seq_init(&status, auth_mon_ht);
 	while ((auth_mon_ht != NULL) && (entry = hash_seq_search(&status)) != NULL)
@@ -206,6 +197,8 @@ static void log_pg_auth_mon_data(){
 						last_successful_login_at, last_failed_attempt_at,
 						entry->total_hba_conflicts, entry->other_auth_failures))); 
 	}
+
+	LWLockRelease(auth_mon_lock);
 
 }
 
@@ -236,6 +229,9 @@ auth_monitor(Port *port, int status)
 	bool		found = false,
 				hba_reject = false,
 				fail = false;
+
+	int waittime = 1000 * 60 * 60 * 24; // log at most once in an day
+	TimestampTz now = GetCurrentTimestamp();
 
 	/*
 	 * Any other plugins which use ClientAuthentication_hook.
@@ -307,7 +303,12 @@ auth_monitor(Port *port, int status)
 		fai->last_successful_login_at = GetCurrentTimestamp();
 	}
 
-	log_pg_auth_mon_data();
+	if ((TimestampDifferenceExceeds(*last_log_timestamp, now, waittime))) {
+		*last_log_timestamp = now;
+		LWLockRelease(auth_mon_lock);
+		log_pg_auth_mon_data();
+		return;
+	}
 
 	LWLockRelease(auth_mon_lock);
 }
