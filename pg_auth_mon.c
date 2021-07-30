@@ -71,12 +71,11 @@ typedef struct auth_mon_rec
 	NameData	rolename_at_last_login_attempt;
 }				auth_mon_rec;
 
+/* LWlock to manage the reading and writing the hash table. */
 #if PG_VERSION_NUM < 90400
-LWLockId	auth_mon_lock; 
-LWLockId	log_timestamp_lock;
+LWLockId	auth_mon_lock;
 #else
 LWLock	   *auth_mon_lock;
-LWLock	   *log_timestamp_lock;
 #endif
 
 /* Original Hook */
@@ -138,10 +137,8 @@ fai_shmem_startup(void)
 #endif
 #if PG_VERSION_NUM < 90600
 	auth_mon_lock = LWLockAssign();
-	log_timestamp_lock = LWLockAssign();
 #else
 	auth_mon_lock = &(GetNamedLWLockTranche("auth_mon_lock"))->lock;
-	log_timestamp_lock = &(GetNamedLWLockTranche("log_timestamp_lock"))->lock;
 #endif
 	LWLockRelease(AddinShmemInitLock);
 
@@ -155,17 +152,15 @@ fai_shmem_startup(void)
 
 /*
  * shmem_shutdown hook
+ *
+ * Note: we don't bother with acquiring lock, because there should be no
+ * other processes running when this is called.
  */
 static void
 fai_shmem_shutdown(int code, Datum arg)
 {
 
 	log_pg_auth_mon_data();
-
-	/*
-	* Note: we don't bother with acquiring the locks here, because 
-	* there should be no other processes running when this is called.
-	*/
 
 	last_log_timestamp = NULL;
 	auth_mon_ht = NULL;
@@ -176,6 +171,7 @@ fai_shmem_shutdown(int code, Datum arg)
 /*
  * Write content of the `pg_auth_mon` to regular Postgres log to make it searchable later. 
  * 
+ * The caller must have the auth_mon_lock in the LW_EXCLUSIVE mode.
  */
 static void log_pg_auth_mon_data(){
 
@@ -190,18 +186,9 @@ static void log_pg_auth_mon_data(){
 	int waittime = 1000 * 60 * 60 * 24;
 	TimestampTz now = GetCurrentTimestamp();
 
-	LWLockAcquire(log_timestamp_lock, LW_EXCLUSIVE);
-
-	if (!(TimestampDifferenceExceeds(*last_log_timestamp, now, waittime))) {
-		LWLockRelease(log_timestamp_lock);
+	if (!(TimestampDifferenceExceeds(*last_log_timestamp, now, waittime)))
 		return;
-	}
-		
 	*last_log_timestamp = now;
-
-	LWLockRelease(log_timestamp_lock);
-
-	LWLockAcquire(auth_mon_lock, LW_SHARED);
 
 	hash_seq_init(&status, auth_mon_ht);
 	while ((auth_mon_ht != NULL) && (entry = hash_seq_search(&status)) != NULL)
@@ -212,15 +199,13 @@ static void log_pg_auth_mon_data(){
 		last_failed_attempt_at = entry->last_failed_attempt_at == 0 ? "0" : timestamptz_to_str(entry->last_failed_attempt_at);
 
 		// XXX for already deleted users we log outdated oids here
-		ereport(LOG, (errmsg("pg_auth_mon entry for user oid: %d rolename_at_last_login_attempt: %s total_successful_attempts: %d last_successful_login_at: %s last_failed_attempt_at: %s total_hba_conflicts: %d other_auth_failures: %d", 
+		ereport(LOG, (errmsg("pg_auth_mon entry for user oid : %d rolename_at_last_login_attempt: %s total_successful_attempts: %d; last_successful_login_at: %s; last_failed_attempt_at: %s; total_hba_conflicts: %d; other_auth_failures: %d", 
 						entry->key,
 						entry->rolename_at_last_login_attempt.data,
 						entry->total_successful_attempts,
 						last_successful_login_at, last_failed_attempt_at,
 						entry->total_hba_conflicts, entry->other_auth_failures))); 
 	}
-
-	LWLockRelease(auth_mon_lock);
 
 }
 
@@ -322,10 +307,9 @@ auth_monitor(Port *port, int status)
 		fai->last_successful_login_at = GetCurrentTimestamp();
 	}
 
-	LWLockRelease(auth_mon_lock);
-
 	log_pg_auth_mon_data();
 
+	LWLockRelease(auth_mon_lock);
 }
 
 
@@ -479,10 +463,9 @@ _PG_init(void)
 	 */
 	RequestAddinShmemSpace(fai_memsize());
 #if PG_VERSION_NUM < 90600
-	RequestAddinLWLocks(2);
+	RequestAddinLWLocks(1);
 #else
 	RequestNamedLWLockTranche("auth_mon_lock", 1);
-	RequestNamedLWLockTranche("log_timestamp_lock", 1);
 #endif
 
 	/* Install Hooks */
@@ -502,4 +485,5 @@ _PG_fini(void)
 	/* Uninstall hooks. */
 	shmem_startup_hook = prev_shmem_startup_hook;
 	ClientAuthentication_hook = original_client_auth_hook;
+
 }
