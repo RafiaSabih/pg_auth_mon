@@ -144,7 +144,7 @@ fai_shmem_startup(void)
 
 	/*
 	 * If we're in the postmaster (or a standalone backend...), set up a shmem
-	 * exit hook to dump the statistics to disk.
+	 * exit hook to dump the authentication statistics to disk.
 	 */
 	if (!IsUnderPostmaster)
 		on_shmem_exit(fai_shmem_shutdown, (Datum) 0);
@@ -159,6 +159,8 @@ fai_shmem_startup(void)
 static void
 fai_shmem_shutdown(int code, Datum arg)
 {
+
+	log_pg_auth_mon_data();
 
 	last_log_timestamp = NULL;
 	auth_mon_ht = NULL;
@@ -178,27 +180,31 @@ static void log_pg_auth_mon_data(){
 	const char *last_successful_login_at;
 	const char *last_failed_attempt_at;
 
-	/* 
-	 * log at most once in an hour 
+	/*
+	 * log at most once in an day 
 	*/
-	int waittime = 1000 * 60 * 60;
+	int waittime = 1000 * 60 * 60 * 24;
 	TimestampTz now = GetCurrentTimestamp();
 
 	if (!(TimestampDifferenceExceeds(*last_log_timestamp, now, waittime)))
 		return;
 	*last_log_timestamp = now;
 
-	elog(LOG, "logging authentication data collected by the pg_auth_mon extension");
 	hash_seq_init(&status, auth_mon_ht);
 	while ((auth_mon_ht != NULL) && (entry = hash_seq_search(&status)) != NULL)
 	{
-		// TODO log rolename
+
 		// XXX beware timestamptz_to_str uses the same static buffer to store results of all calls
-		last_successful_login_at = entry->last_successful_login_at == 0 ? "N/A" : timestamptz_to_str(entry->last_successful_login_at);
-		last_failed_attempt_at = entry->last_failed_attempt_at == 0 ? "N/A" : timestamptz_to_str(entry->last_failed_attempt_at);
-		elog(LOG, 
-		"total_successful_attempts: %d last_successful_login_at: %s last_failed_attempt_at: %s total_hba_conflicts: %d  other_auth_failures: %d ",
-		entry->total_successful_attempts, last_successful_login_at, last_failed_attempt_at, entry->total_hba_conflicts, entry->other_auth_failures);
+		last_successful_login_at = entry->last_successful_login_at == 0 ? "0" : timestamptz_to_str(entry->last_successful_login_at);
+		last_failed_attempt_at = entry->last_failed_attempt_at == 0 ? "0" : timestamptz_to_str(entry->last_failed_attempt_at);
+
+		// XXX for already deleted users we log outdated oids here
+		ereport(LOG, (errmsg("pg_auth_mon entry for user oid : %d rolename_at_last_login_attempt: %s total_successful_attempts: %d; last_successful_login_at: %s; last_failed_attempt_at: %s; total_hba_conflicts: %d; other_auth_failures: %d", 
+						entry->key,
+						entry->rolename_at_last_login_attempt.data,
+						entry->total_successful_attempts,
+						last_successful_login_at, last_failed_attempt_at,
+						entry->total_hba_conflicts, entry->other_auth_failures))); 
 	}
 
 }
