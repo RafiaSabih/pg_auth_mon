@@ -17,6 +17,9 @@ Once we have spot a suspicious activity, we may dig
 deeper by using this information along with the log file to identify the
 particular IP address etc.
 
+## List of available GUC variables:
+
+`pg_auth_mon.log_period` = 60 # dump pg_auth_mon content to Postgres log every 60 minutes (default: 0 meaning the feature is off)
 
 ## How to build and install:
 
