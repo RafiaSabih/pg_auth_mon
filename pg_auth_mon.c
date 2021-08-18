@@ -312,6 +312,8 @@ auth_monitor(Port *port, int status)
 		*last_log_timestamp = now;
 		LWLockRelease(auth_mon_lock);
 		log_pg_auth_mon_data();
+		// prevent double-release of auth_mon_lock
+		return;
 	}
 
 	LWLockRelease(auth_mon_lock);
