@@ -26,6 +26,7 @@
 #include "utils/tuplestore.h"
 #include "utils/timestamp.h"
 #include "utils/acl.h"
+#include "utils/guc.h"
 #include "catalog/pg_authid.h"
 #include "funcapi.h"
 #include "c.h"
@@ -40,6 +41,9 @@ PG_MODULE_MAGIC;
 
 extern void _PG_init(void);
 extern void _PG_fini(void);
+
+/* GUC variables */
+static int log_period_guc = 0;
 
 /* Number of output arguments (columns) for various API versions */
 #define PG_AUTH_MON_COLS_V1_0  6
@@ -122,6 +126,19 @@ _PG_init(void)
 
 	original_client_auth_hook = ClientAuthentication_hook;
 	ClientAuthentication_hook = auth_monitor;
+
+	DefineCustomIntVariable("pg_auth_mon.log_period",
+						"Duration between logging pg_auth_mon data to PG log (in minutes).",
+						NULL,
+						&log_period_guc,
+						0, // 0 means the feature is off
+						0,
+						10080, // one week
+						PGC_SIGHUP,
+						GUC_UNIT_MIN,
+						NULL,
+						NULL,
+						NULL);
 }
 
 /*
@@ -232,7 +249,7 @@ auth_monitor(Port *port, int status)
 				hba_reject = false,
 				fail = false;
 
-	int waittime = 1000 * 60 * 60 * 24; // log at most once in an day
+	int waittime_msec;
 	TimestampTz now = GetCurrentTimestamp();
 
 	/*
@@ -308,10 +325,14 @@ auth_monitor(Port *port, int status)
 		fai->last_successful_login_at = GetCurrentTimestamp();
 	}
 
-	if ((TimestampDifferenceExceeds(*last_log_timestamp, now, waittime))) {
+	waittime_msec = 1000 * 60 * log_period_guc;
+	if (waittime_msec > 0 && (TimestampDifferenceExceeds(*last_log_timestamp, now, waittime_msec))) 
+	{
 		*last_log_timestamp = now;
 		LWLockRelease(auth_mon_lock);
 		log_pg_auth_mon_data();
+		// prevent double-release of auth_mon_lock
+		return;
 	}
 
 	LWLockRelease(auth_mon_lock);
