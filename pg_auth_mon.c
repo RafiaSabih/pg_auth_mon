@@ -43,7 +43,7 @@ extern void _PG_init(void);
 extern void _PG_fini(void);
 
 /* GUC variables */
-static int pg_auth_mon_log_period_guc = 0;
+static int log_period_guc = 0;
 
 /* Number of output arguments (columns) for various API versions */
 #define PG_AUTH_MON_COLS_V1_0  6
@@ -130,7 +130,7 @@ _PG_init(void)
 	DefineCustomIntVariable("pg_auth_mon.log_period",
 						"Duration between logging pg_auth_mon data to PG log (in minutes).",
 						NULL,
-						&pg_auth_mon_log_period_guc,
+						&log_period_guc,
 						0, // 0 means the feature is off
 						0,
 						10080, // one week
@@ -325,8 +325,9 @@ auth_monitor(Port *port, int status)
 		fai->last_successful_login_at = GetCurrentTimestamp();
 	}
 
-	waittime_msec = 1000 * 60 * pg_auth_mon_log_period_guc;
-	if (waittime_msec > 0 && (TimestampDifferenceExceeds(*last_log_timestamp, now, waittime_msec))) {
+	waittime_msec = 1000 * 60 * log_period_guc;
+	if (waittime_msec > 0 && (TimestampDifferenceExceeds(*last_log_timestamp, now, waittime_msec))) 
+	{
 		*last_log_timestamp = now;
 		LWLockRelease(auth_mon_lock);
 		log_pg_auth_mon_data();
