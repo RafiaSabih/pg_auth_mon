@@ -1,4 +1,4 @@
-#!bin/bash
+#!/bin/bash
 
 export PGPASSWORD=postgres
 export PGDATA=test_cluster
@@ -14,7 +14,7 @@ cleanup 2> /dev/null
 
 set -e
 
-readonly pwfile=$(tempfile)
+readonly pwfile=$(mktemp)
 echo -n $PGPASSWORD > $pwfile
 initdb --pwfile=$pwfile --auth=md5
 

@@ -83,10 +83,13 @@ LWLock	   *auth_mon_lock;
 #endif
 
 /* Original Hook */
-static ClientAuthentication_hook_type original_client_auth_hook = NULL;
+static ClientAuthentication_hook_type prev_client_auth_hook = NULL;
 
 /* Saved hook values in case of unload */
 static shmem_startup_hook_type prev_shmem_startup_hook = NULL;
+#if (PG_VERSION_NUM >= 150000)
+static shmem_request_hook_type prev_shmem_request_hook = NULL;
+#endif
 
 /* Hash table in the shared memory */
 static HTAB *auth_mon_ht;
@@ -102,6 +105,18 @@ static void log_pg_auth_mon_data(void);
 static Datum pg_auth_mon_internal(PG_FUNCTION_ARGS, pgauthmonVersion api_version);
 
 
+#if (PG_VERSION_NUM >= 150000)
+static void
+fai_shmem_request(void)
+{
+	if (prev_shmem_request_hook)
+		prev_shmem_request_hook();
+
+	RequestAddinShmemSpace(fai_memsize());
+	RequestNamedLWLockTranche("auth_mon_lock", 1);
+}
+#endif
+
 /*
  * Module Load Callback
  */
@@ -113,10 +128,13 @@ _PG_init(void)
 	 * the postmaster process.)  We'll allocate or attach to the shared
 	 * resources in *_shmem_startup().
 	 */
-	RequestAddinShmemSpace(fai_memsize());
 #if PG_VERSION_NUM < 90600
 	RequestAddinLWLocks(1);
+#elif (PG_VERSION_NUM >= 150000)
+	prev_shmem_request_hook = shmem_request_hook;
+	shmem_request_hook = fai_shmem_request;
 #else
+	RequestAddinShmemSpace(fai_memsize());
 	RequestNamedLWLockTranche("auth_mon_lock", 1);
 #endif
 
@@ -124,7 +142,7 @@ _PG_init(void)
 	prev_shmem_startup_hook = shmem_startup_hook;
 	shmem_startup_hook = fai_shmem_startup;
 
-	original_client_auth_hook = ClientAuthentication_hook;
+	prev_client_auth_hook = ClientAuthentication_hook;
 	ClientAuthentication_hook = auth_monitor;
 
 	DefineCustomIntVariable("pg_auth_mon.log_period",
@@ -149,8 +167,10 @@ _PG_fini(void)
 {
 	/* Uninstall hooks. */
 	shmem_startup_hook = prev_shmem_startup_hook;
-	ClientAuthentication_hook = original_client_auth_hook;
-
+	ClientAuthentication_hook = prev_client_auth_hook;
+#if (PG_VERSION_NUM >= 150000)
+	shmem_request_hook = prev_shmem_request_hook;
+#endif
 }
 
 /*
@@ -215,13 +235,10 @@ fai_shmem_startup(void)
 static void
 fai_shmem_shutdown(int code, Datum arg)
 {
-
 	log_pg_auth_mon_data();
 
 	last_log_timestamp = NULL;
 	auth_mon_ht = NULL;
-
-	return;
 }
 
 /*
@@ -232,7 +249,6 @@ fai_memsize(void)
 {
 	return add_size(MAXALIGN(sizeof(TimestampTz)),
 				hash_estimate_size(AUTH_MON_HT_SIZE, sizeof(auth_mon_rec)));
-
 }
 
 /*
@@ -255,8 +271,8 @@ auth_monitor(Port *port, int status)
 	/*
 	 * Any other plugins which use ClientAuthentication_hook.
 	 */
-	if (original_client_auth_hook)
-		(*original_client_auth_hook) (port, status);
+	if (prev_client_auth_hook)
+		(*prev_client_auth_hook) (port, status);
 
 	/* Nothing to do */
 	if (status == STATUS_EOF)
@@ -477,6 +493,7 @@ pg_auth_mon_internal(PG_FUNCTION_ARGS, pgauthmonVersion api_version)
 			nulls[i++] = true;
 		else
 			values[i++] = TimestampTzGetDatum(entry->last_successful_login_at);
+
 		values[i++] = Int32GetDatum(entry->total_hba_conflicts);
 		values[i++] = Int32GetDatum(entry->other_auth_failures);
 
