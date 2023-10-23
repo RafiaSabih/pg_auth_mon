@@ -20,7 +20,7 @@ select rolname, successful_attempts, total_hba_conflicts, other_auth_failures fr
 
 --2.Login attempt by invalid username
 \! PGPASSWORD=postgres psql -X -U auth_blah -d testdb  -c "select 1" 2>&1 | sed 's/^.* FATAL: */FATAL: /'
-FATAL: password authentication failed for user "auth_blah"
+FATAL: role "auth_blah" does not exist
 select rolname, uid, successful_attempts, total_hba_conflicts, other_auth_failures from pg_auth_mon where uid = 0;
  rolname | uid | successful_attempts | total_hba_conflicts | other_auth_failures 
 ---------+-----+---------------------+---------------------+---------------------
@@ -33,19 +33,23 @@ FATAL: role "auth_nologin" is not permitted to log in
 select rolname, successful_attempts, total_hba_conflicts, other_auth_failures from pg_auth_mon where rolname like 'auth_%';
    rolname    | successful_attempts | total_hba_conflicts | other_auth_failures 
 --------------+---------------------+---------------------+---------------------
- auth_nologin |                   1 |                   0 |                   0
  auth_super   |                   1 |                   0 |                   0
+ auth_nologin |                   1 |                   0 |                   0
 (2 rows)
 
---4.Login attempt by a valid user with a wrong password 
+--4.Login attempt by a valid user with a wrong password, only reports unsuccessful if auth_method is not set as trust 
 \! PGPASSWORD=postgres psql -X -U auth_test -d testdb -c "select 1" 2>&1 | sed 's/^.* FATAL: */FATAL: /'
-FATAL: password authentication failed for user "auth_test"
+ ?column? 
+----------
+        1
+(1 row)
+
 select rolname, successful_attempts, total_hba_conflicts, other_auth_failures from pg_auth_mon where rolname like 'auth_%' order by rolname;
    rolname    | successful_attempts | total_hba_conflicts | other_auth_failures 
 --------------+---------------------+---------------------+---------------------
  auth_nologin |                   1 |                   0 |                   0
  auth_super   |                   1 |                   0 |                   0
- auth_test    |                   0 |                   0 |                   1
+ auth_test    |                   1 |                   0 |                   0
 (3 rows)
 
 --5. Test upgrade to version '1.1'
@@ -62,7 +66,7 @@ select rolname, successful_attempts, total_hba_conflicts, other_auth_failures fr
 --------------+---------------------+---------------------+---------------------
  auth_nologin |                   1 |                   0 |                   0
  auth_super   |                   1 |                   0 |                   0
- auth_test    |                   0 |                   0 |                   1
+ auth_test    |                   1 |                   0 |                   0
 (3 rows)
 
 --6. Rolname is not empty for deleted users
@@ -78,7 +82,7 @@ select rolname, successful_attempts, total_hba_conflicts, other_auth_failures fr
 --------------------+---------------------+---------------------+---------------------
  auth_nologin       |                   1 |                   0 |                   0
  auth_super         |                   1 |                   0 |                   0
- auth_test          |                   0 |                   0 |                   1
+ auth_test          |                   1 |                   0 |                   0
  auth_to_be_deleted |                   1 |                   0 |                   0
 (4 rows)
 
@@ -90,7 +94,6 @@ select rolname, successful_attempts, total_hba_conflicts, other_auth_failures fr
 (1 row)
 
 alter role auth_to_be_renamed rename to auth_renamed;
-NOTICE:  MD5 password cleared because of role rename
 alter role auth_renamed with password 'postgres';
 \! PGPASSWORD=postgres psql -X -U auth_renamed -d testdb -c "select 1"
  ?column? 
@@ -105,7 +108,7 @@ select rolname, successful_attempts, total_hba_conflicts, other_auth_failures fr
  auth_nologin       |                   1 |                   0 |                   0
  auth_renamed       |                   2 |                   0 |                   0
  auth_super         |                   1 |                   0 |                   0
- auth_test          |                   0 |                   0 |                   1
+ auth_test          |                   1 |                   0 |                   0
  auth_to_be_deleted |                   1 |                   0 |                   0
 (5 rows)
 
