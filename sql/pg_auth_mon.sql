@@ -21,7 +21,7 @@ select rolname, uid, successful_attempts, total_hba_conflicts, other_auth_failur
 \! PGPASSWORD=postgres psql -X -U auth_nologin -d testdb -c "select 1" 2>&1 | sed 's/^.* FATAL: */FATAL: /'
 select rolname, successful_attempts, total_hba_conflicts, other_auth_failures from pg_auth_mon where rolname like 'auth_%';
 
---4.Login attempt by a valid user with a wrong password, only reports unsuccessful if auth_method is not set as trust 
+--4.Login attempt by a valid user with a wrong password 
 \! PGPASSWORD=postgres psql -X -U auth_test -d testdb -c "select 1" 2>&1 | sed 's/^.* FATAL: */FATAL: /'
 select rolname, successful_attempts, total_hba_conflicts, other_auth_failures from pg_auth_mon where rolname like 'auth_%' order by rolname;
 
