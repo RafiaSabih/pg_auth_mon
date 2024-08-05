@@ -519,12 +519,10 @@ pg_auth_mon_internal(PG_FUNCTION_ARGS, pgauthmonVersion api_version)
 
 	LWLockRelease(auth_mon_lock);
 
-	/* clean up and return the tuplestore */
-	tuplestore_donestoring(tupstore);
-
 	rsinfo->returnMode = SFRM_Materialize;
 	rsinfo->setResult = tupstore;
 	rsinfo->setDesc = tupdesc;
 
 	return (Datum) 0;
 }
+
