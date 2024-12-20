@@ -79,7 +79,7 @@ typedef struct auth_mon_rec
 #if PG_VERSION_NUM < 90400
 LWLockId	auth_mon_lock;
 #else
-LWLock	   *auth_mon_lock;
+static LWLock	   *auth_mon_lock;
 #endif
 
 /* Original Hook */
