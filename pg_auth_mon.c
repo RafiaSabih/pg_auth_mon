@@ -77,7 +77,7 @@ typedef struct auth_mon_rec
 
 /* LWlock to manage the reading and writing the hash table. */
 #if PG_VERSION_NUM < 90400
-LWLockId	auth_mon_lock;
+static LWLockId	auth_mon_lock;
 #else
 static LWLock	   *auth_mon_lock;
 #endif
@@ -198,7 +198,18 @@ fai_shmem_startup(void)
 	memset(&info, 0, sizeof(info));
 	info.keysize = sizeof(Oid);
 	info.entrysize = sizeof(auth_mon_rec);
-#if PG_VERSION_NUM > 100000
+#if PG_VERSION_NUM >= 190000
+	/*
+	 * PG 19 changed ShmemInitHash(): the separate min/max size pair was
+	 * collapsed into a single nelems (int64) argument, and uint32_hash is
+	 * now the default for fixed-size keys so HASH_FUNCTION is no longer
+	 * accepted.
+	 */
+	auth_mon_ht = ShmemInitHash("auth_mon_hash",
+								AUTH_MON_HT_SIZE,
+								&info,
+								HASH_ELEM);
+#elif PG_VERSION_NUM > 100000
 	info.hash = uint32_hash;
 
 	auth_mon_ht = ShmemInitHash("auth_mon_hash",
@@ -435,7 +446,7 @@ pg_auth_mon_internal(PG_FUNCTION_ARGS, pgauthmonVersion api_version)
 	MemoryContext oldcontext;
 	HASH_SEQ_STATUS status;
 	auth_mon_rec *entry;
-	int i;
+	int i = 0;
 
 	/* hash table must exist already */
 	if (!auth_mon_ht)
