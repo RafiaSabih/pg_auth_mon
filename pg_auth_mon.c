@@ -201,14 +201,15 @@ fai_shmem_startup(void)
 #if PG_VERSION_NUM >= 190000
 	/*
 	 * PG 19 changed ShmemInitHash(): the separate min/max size pair was
-	 * collapsed into a single nelems (int64) argument, and uint32_hash is
-	 * now the default for fixed-size keys so HASH_FUNCTION is no longer
-	 * accepted.
+	 * collapsed into a single nelems argument.  HASH_FUNCTION is no longer
+	 * accepted; use HASH_BLOBS for fixed-size binary keys (Oid is uint32).
+	 * Without HASH_BLOBS (or HASH_STRINGS/HASH_FUNCTION) PG 19 asserts in
+	 * dynahash.c that the caller must explicitly declare the key type.
 	 */
 	auth_mon_ht = ShmemInitHash("auth_mon_hash",
 								AUTH_MON_HT_SIZE,
 								&info,
-								HASH_ELEM);
+								HASH_ELEM | HASH_BLOBS);
 #elif PG_VERSION_NUM > 100000
 	info.hash = uint32_hash;
 
