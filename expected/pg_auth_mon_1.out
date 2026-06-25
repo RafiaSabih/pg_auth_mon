@@ -1,8 +1,23 @@
 create role auth_super with superuser login password 'postgres';
+WARNING:  setting an MD5-encrypted password
+DETAIL:  MD5 password support is deprecated and will be removed in a future release of PostgreSQL.
+HINT:  Refer to the PostgreSQL documentation for details about migrating to another password type.
 create role auth_nologin with password 'postgres';
+WARNING:  setting an MD5-encrypted password
+DETAIL:  MD5 password support is deprecated and will be removed in a future release of PostgreSQL.
+HINT:  Refer to the PostgreSQL documentation for details about migrating to another password type.
 create role auth_test with login password 'wrongpassword';
+WARNING:  setting an MD5-encrypted password
+DETAIL:  MD5 password support is deprecated and will be removed in a future release of PostgreSQL.
+HINT:  Refer to the PostgreSQL documentation for details about migrating to another password type.
 create role auth_to_be_deleted with login password 'foobar';
+WARNING:  setting an MD5-encrypted password
+DETAIL:  MD5 password support is deprecated and will be removed in a future release of PostgreSQL.
+HINT:  Refer to the PostgreSQL documentation for details about migrating to another password type.
 create role auth_to_be_renamed with login password 'postgres';
+WARNING:  setting an MD5-encrypted password
+DETAIL:  MD5 password support is deprecated and will be removed in a future release of PostgreSQL.
+HINT:  Refer to the PostgreSQL documentation for details about migrating to another password type.
 create database testdb;
 create extension pg_auth_mon version '1.0';
 --1.Successful Login attempt
@@ -92,6 +107,9 @@ select rolname, successful_attempts, total_hba_conflicts, other_auth_failures fr
 alter role auth_to_be_renamed rename to auth_renamed;
 NOTICE:  MD5 password cleared because of role rename
 alter role auth_renamed with password 'postgres';
+WARNING:  setting an MD5-encrypted password
+DETAIL:  MD5 password support is deprecated and will be removed in a future release of PostgreSQL.
+HINT:  Refer to the PostgreSQL documentation for details about migrating to another password type.
 \! PGPASSWORD=postgres psql -X -U auth_renamed -d testdb -c "select 1"
  ?column? 
 ----------

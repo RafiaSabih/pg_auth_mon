@@ -306,6 +306,12 @@ auth_monitor(Port *port, int status)
 	fai = (auth_mon_rec *) hash_search(auth_mon_ht, &key, HASH_ENTER_NULL,
 									   &found);
 
+	if (fai == NULL)
+	{
+		LWLockRelease(auth_mon_lock);
+		return;
+	}
+
 	if (!found)
 	{
 		fai->key = key;
@@ -385,7 +391,7 @@ log_pg_auth_mon_data(void){
 	{
 
 		// XXX beware timestamptz_to_str uses the same static buffer to store results of all calls
-		last_successful_login_at = entry->last_successful_login_at == 0 ? "0" : timestamptz_to_str(entry->last_successful_login_at);
+		last_successful_login_at = entry->last_successful_login_at == 0 ? "0" :  pstrdup(timestamptz_to_str(entry->last_successful_login_at));
 		last_failed_attempt_at = entry->last_failed_attempt_at == 0 ? "0" : timestamptz_to_str(entry->last_failed_attempt_at);
 
 		// XXX for already deleted users we log outdated oids here
