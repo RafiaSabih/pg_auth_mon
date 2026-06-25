@@ -371,7 +371,7 @@ auth_monitor(Port *port, int status)
  * searchable later.
  */
 static void
-log_pg_auth_mon_data(){
+log_pg_auth_mon_data(void){
 
 	HASH_SEQ_STATUS status;
 	auth_mon_rec *entry;
