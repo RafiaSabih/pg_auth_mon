@@ -28,7 +28,7 @@ trap cleanup QUIT TERM EXIT
 
 pg_ctl start -w -o "--shared_preload_libraries=pg_auth_mon --unix_socket_directories=$PGHOST"
 
-PG_MAJOR=$(pg_ctl --version | awk '{print $3}' | cut -d. -f1)
+PG_MAJOR=$(pg_ctl --version | awk '{print $3}' | cut -d. -f1 | sed 's/[^0-9].*//')
 if [ "$PG_MAJOR" -ge "18" ]; then
   EXPECTED_OUT="pg_auth_mon_1.out"
 else
