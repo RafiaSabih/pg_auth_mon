@@ -53,7 +53,8 @@ The information is accessible in the `pg_auth_mon` view. Each user who attempts 
 
 The view does not store more specific information like the client's IP address or port; check Postgres log for that information. 
 
-## How to use:
-Run the provided script test.sh with passing the postgresql bin, e.g.
+## How to test:
+Run the provided script test.sh with the path to postgresql bin, e.g.
 ```bash
-   sh test.sh /path/to/postgresql/bin```
+   sh test.sh /path/to/postgresql/bin
+```
