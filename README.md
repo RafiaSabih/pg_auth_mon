@@ -52,3 +52,8 @@ The information is accessible in the `pg_auth_mon` view. Each user who attempts 
 - total number of authentication failures because of other issues. Keep in mind a login attempt by a role without the `LOGIN` attribute is *not* an authentication failure
 
 The view does not store more specific information like the client's IP address or port; check Postgres log for that information. 
+
+## How to use:
+Run the provided script test.sh with passing the postgresql bin, e.g.
+```bash
+   sh test.sh /path/to/postgresql/bin```
